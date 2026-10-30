@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>全境封锁2 配装计算器</title>
+<style>
+:root{
+  --bg:#0f1317; --panel:#171d23; --panel2:#1d242c; --border:#2a333d; --border2:#39434e;
+  --text:#d9dee3; --muted:#8b949d; --accent:#f0862d; --accent-dim:#b35f1d;
+  --red:#e0564f; --blue:#4f8fca; --yellow:#d9b13b; --gold:#d4a940; --teal:#45a29e; --green:#7bb662;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#1b232b,#151a20)}
+.topbar h1{font-size:18px;margin:0;font-weight:600;letter-spacing:.5px}
+.topbar h1 em{font-style:normal;color:var(--accent)}
+.badge{font-size:11px;color:var(--muted);border:1px solid var(--border2);border-radius:4px;padding:2px 7px}
+.spacer{flex:1}
+.btn{background:var(--panel2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.layout{display:block;max-width:1240px;margin:0 auto;padding:14px 20px}
+.weapon-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:760px){.weapon-grid{grid-template-columns:1fr}}
+.gear-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:1000px){.gear-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.gear-grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px}
+.panel h3{margin:0 0 10px;font-size:13px;color:var(--muted);font-weight:600;letter-spacing:1px;display:flex;align-items:center;gap:8px}
+.panel h3 img{width:20px;height:20px}
+select,input[type=number]{width:100%;background:#10151a;color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-size:13px}
+select:focus,input:focus{outline:1px solid var(--accent-dim)}
+label.fl{display:block;font-size:11px;color:var(--muted);margin:8px 0 3px}
+.row{display:flex;gap:8px}.row>div{flex:1;min-width:0}
+.wcard{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px}
+.item-frame{position:relative;flex:none;width:100px;height:100px;background:linear-gradient(180deg,#242c35,#151b21);border:2px solid var(--gold);border-radius:10px;display:flex;align-items:center;justify-content:center}
+.item-frame.exotic{border-color:var(--red)}
+.item-frame.set{border-color:var(--teal)}
+.item-frame .item-ic{width:84px;height:84px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.65))}
+.item-frame img.item-ic ~ .wsvg{display:none}
+.item-frame.imgfail img.item-ic{display:none}
+.item-frame.imgfail .wsvg{display:block}
+.tal-ic{width:26px;height:26px;flex:none;border-radius:5px;background:#0c1013;border:1px solid var(--border)}
+.item-frame .wsvg{width:78px;height:32px;color:#e6ebf0}
+.item-frame .brand-badge{position:absolute;right:-8px;bottom:-8px;width:34px;height:34px;background:#10151a;border:1px solid var(--border2);border-radius:8px;padding:3px}
+.whead,.ghead{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px}
+.gmain{flex:1;min-width:0}
+.wcard .wname{display:flex;align-items:center;gap:8px;font-weight:600;flex-wrap:wrap}
+.qtag{font-size:10px;border-radius:3px;padding:1px 5px;color:#10151a;font-weight:700}
+.q-high{background:var(--gold)} .q-named{background:var(--gold)} .q-exotic{background:var(--red);color:#fff}
+.wstats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.ws{background:#10151a;border-radius:6px;padding:5px 8px}
+.ws b{display:block;font-size:13px;color:var(--text);font-variant-numeric:tabular-nums}
+.ws span{font-size:10px;color:var(--muted)}
+.gcard{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px}
+.gcard .gtitle{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;margin-bottom:2px}
+.gcard select{margin-top:4px;font-size:12px}
+.core-pills{display:flex;gap:6px;margin-top:8px}
+.cpill{flex:1;text-align:center;font-size:11px;padding:4px 0;border-radius:5px;border:1px solid var(--border2);color:var(--muted);cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:center;gap:4px}
+.cpill img{width:13px;height:13px;flex:none}
+    .cpill span,.cpill{white-space:nowrap}
+.cpill.red.on{background:rgba(224,86,79,.16);border-color:var(--red);color:var(--red);font-weight:600}
+.cpill.blue.on{background:rgba(79,143,202,.16);border-color:var(--blue);color:var(--blue);font-weight:600}
+.cpill.yellow.on{background:rgba(217,177,59,.16);border-color:var(--yellow);color:var(--yellow);font-weight:600}
+.talent-row{margin-top:8px;font-size:12px;background:#10151a;border-radius:6px;padding:6px 8px;border-left:3px solid var(--accent)}
+.talent-row .trow{display:flex;align-items:center;gap:8px}
+.talent-row .tn{font-weight:600;color:var(--accent)}
+.talent-row .td{font-size:11px;color:var(--muted);line-height:1.4;margin-top:3px}
+.talent-row select{margin-top:4px}
+.fixed-note{font-size:10px;color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:760px){.kpis{grid-template-columns:1fr 1fr}}
+.kpi{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+.kpi b{display:block;font-size:17px;font-variant-numeric:tabular-nums;color:var(--text)}
+.kpi.gold b{color:var(--gold)} .kpi.acc b{color:var(--accent)}
+.kpi span{font-size:10px;color:var(--muted)}
+.wres{margin-top:10px}
+.wres .wt{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;margin-bottom:6px}
+.bar-wrap{background:#10151a;border-radius:5px;height:14px;overflow:hidden;margin:4px 0 10px}
+.bar{height:100%;background:linear-gradient(90deg,var(--accent-dim),var(--accent));border-radius:5px;transition:width .25s}
+.detail{font-size:11px;color:var(--muted);line-height:1.7;word-break:break-all}
+.detail b{color:var(--text);font-variant-numeric:tabular-nums}
+.warn{color:var(--red)}
+.bsum{font-size:12px;line-height:1.8}
+.bsum .brow{display:flex;gap:8px;align-items:baseline}
+.bsum img{width:18px;height:18px;vertical-align:-3px;background:#0c1013;border-radius:3px}
+.bsum .cnt{color:var(--accent);font-weight:700}
+.bsum .ef{color:var(--muted);font-size:11px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.switch{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:8px;cursor:pointer}
+.switch input{accent-color:var(--accent)}
+footer{padding:14px 20px 30px;color:var(--muted);font-size:11px;line-height:1.8;max-width:1560px;margin:0 auto}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#222b33;border:1px solid var(--accent);color:var(--text);padding:8px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <h1>全境封锁<em>2</em> 配装计算器</h1>
+  <span class="badge" id="dbver"></span>
+  <span class="badge">网页版 · 离线可用</span>
+  <div class="spacer"></div>
+  <button class="btn" id="btnShare">复制分享链接</button>
+  <button class="btn" id="btnExport">导出 JSON</button>
+  <button class="btn" id="btnImport">导入 JSON</button>
+  <button class="btn" id="btnReset">重置</button>
+  <input type="file" id="fileImport" accept=".json" style="display:none">
+</header>
+
+<main class="layout">
+  <!-- ============ 1. 武器 ============ -->
+  <div class="panel">
+    <h3><img src="icons/slots/mask.png" alt="">武器</h3>
+    <div class="weapon-grid" id="weaponCards"></div>
+  </div>
+
+  <!-- ============ 2. 专精 · 手表 · 目标 ============ -->
+  <div class="panel">
+    <h3><img src="icons/slots/kneepads.png" alt="">专精 · 手表 · 目标</h3>
+    <div class="row">
+      <div style="flex:2;min-width:200px">
+        <label class="fl">专精（选择后所有武器类型伤害 +15%）</label>
+        <select id="spec"></select>
+      </div>
+      <div style="flex:1;min-width:130px">
+        <label class="fl">专精度 · 该武器类型 %</label>
+        <input type="number" id="expertise" min="0" max="10" value="10">
+      </div>
+    </div>
+    <div class="row">
+      <div><label class="fl">手表 · 该武器类型伤害 %</label><input type="number" id="watchWd" min="0" max="15" value="15"></div>
+      <div><label class="fl">手表 · 暴击率 %</label><input type="number" id="watchChc" min="0" max="3" value="3"></div>
+      <div><label class="fl">手表 · 暴击伤害 %</label><input type="number" id="watchChd" min="0" max="10" value="10"></div>
+    </div>
+    <label class="fl">目标爆头率 <b id="hsRateV" style="color:var(--text)">0</b>%（爆头伤只在爆头时生效）</label>
+    <input type="range" id="hsRate" min="0" max="50" step="1" value="0">
+    <label class="switch"><input type="checkbox" id="assumeTalents" checked>条件天赋按「常驻/满层」计算（同原版工具默认口径）</label>
+  </div>
+
+  <!-- ============ 3. 装备 6 件 ============ -->
+  <div class="panel">
+    <h3><img src="icons/brands/providence.png" alt="">装备 6 件套 <span class="badge">词条默认按金装上限</span></h3>
+    <div class="gear-grid" id="gearGrid"></div>
+  </div>
+
+  <!-- ============ 4. 品牌 / 套装加成汇总 ============ -->
+  <div class="panel">
+    <h3><img src="icons/brands/ceska.png" alt="">品牌 / 套装加成汇总</h3>
+    <div class="bsum" id="brandSummary">–</div>
+  </div>
+
+  <!-- ============ 5. 伤害计算结果 ============ -->
+  <div class="panel">
+    <h3><img src="icons/brands/providence.png" alt="">伤害计算结果 <span class="badge">对装甲目标</span></h3>
+    <div id="results"></div>
+  </div>
+
+  <!-- ============ 6. 说明 ============ -->
+  <div class="panel">
+    <h3>说明</h3>
+    <div class="detail">
+      · 公式：期望伤害 = 基础伤害 × (1 + 全武器伤 + 武器类型伤 + 专精/手表/专精度) × (1 + 暴率×暴伤 + 爆头率×爆头伤) × 独立增伤，对装甲再乘 (1 + 对装甲伤)。<br>
+      · 满级 40 满值：红核 = 武器伤害 +15%，蓝核 = 装甲 +170,000，黄核 = 技能分阶 +1；暴击率上限 60%，每把枪自带 25% 暴伤与面板爆头伤。<br>
+      · 具名 / 奇特 / 套装 4 件套天赋为固定天赋，品牌件可在下拉中选择通用天赋。<br>
+      · 换弹、弹匣容量参与循环 DPS 与弹匣伤害；射速加成暂未计入。<br>
+      · 配置自动保存在本机，可用「复制分享链接」把整套配装编码进网址发给朋友。
+    </div>
+  </div>
+</main>
+
+<footer>
+  游戏数据来源：<a href="https://github.com/mxswat/mx-division-builds" target="_blank">Mx Division Builds Tool</a> 开源数据表（版本 <span id="dbver2"></span>，CC BY-NC-SA 4.0）· 武器/装备渲染图与中文天赋库来自 <a href="https://github.com/Agent537-coder/td2-optimizer" target="_blank">td2-optimizer</a> 游戏数据整理。图标与游戏数据版权归 Ubisoft 所有。<br>
+  本页面为学习交流用的粉丝工具，非商业用途；游戏数据以游戏内实际为准。
+</footer>
+<div class="toast" id="toast"></div>
+
+<script src="data.js"></script>
+<script>
+"use strict";
+const D = window.D2;
+const $ = s => document.querySelector(s);
+const zh = s => (D.zh && D.zh[s]) || s;
+const fmt = n => Math.round(n).toLocaleString("en-US");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const TYPE_DMG = {"Assault Rifle":"Assault Rifle Damage","SMG":"SMG Damage","LMG":"LMG Damage","Rifle":"Rifle Damage","Shotgun":"Shotgun Damage","Marksman Rifle":"Marksman Rifle Damage","Pistol":"Pistol Damage"};
+const SLOTS = ["Mask","Backpack","Chest","Gloves","Holster","Kneepads"];
+const SLOT_ZH = {Mask:"面具",Backpack:"背包",Chest:"胸甲",Gloves:"手套",Holster:"枪套",Kneepads:"护膝"};
+const SET_KEYS = [1,2,3], BRAND_KEYS = [0,1,2]; // 品牌第 n 件 / 套装第 n+1 件
+const isSet = name => D.setNames.includes(name);
+
+function weaponKey(w){return w.variant + "|" + w.name;}
+function weaponByKey(k){return D.weapons.find(w => weaponKey(w) === k);}
+function defaultState(){
+  const gear = {};
+  const preset = {
+    Mask:{i:idx("Fenris Group AB","Mask"),core:"red",a1:"Critical Hit Chance",a2:"Critical Hit Damage",mod:"Critical Hit Damage",talent:null},
+    Chest:{i:idx("Grupo Sombra S.A.","Chest"),core:"red",a1:"Critical Hit Chance",a2:"Critical Hit Damage",mod:"Critical Hit Chance",talent:"Glass Cannon"},
+    Backpack:{i:idx("Ceska Vyroba s.r.o.","Backpack"),core:"red",a1:"Critical Hit Damage",a2:"Critical Hit Chance",mod:"Critical Hit Damage",talent:"Vigilance"},
+    Gloves:{i:idx("Fenris Group AB","Gloves"),core:"red",a1:"Critical Hit Chance",a2:"Critical Hit Damage",mod:null,talent:null},
+    Holster:{i:idx("Grupo Sombra S.A.","Holster"),core:"red",a1:"Critical Hit Damage",a2:"Critical Hit Chance",mod:null,talent:null},
+    Kneepads:{i:idx("Sokolov Concern","Kneepads"),core:"red",a1:"Critical Hit Chance",a2:"Critical Hit Damage",mod:null,talent:null},
+  };
+  for(const s of SLOTS) gear[s] = preset[s];
+  return {
+    weapons:[wkey("AK-M"), wkey("Model 700")], wtype:["Assault Rifle","Marksman Rifle"], wTalent:[null,null], wAttr:["Critical Hit Damage","Critical Hit Damage"],
+    assume:true, spec:null, watch:{wd:15,chc:3,chd:10,hsd:10}, expertise:10, hsRate:0, gear
+  };
+  function idx(brand, slot){return D.slots[slot].findIndex(it => it.brand === brand && it.kind === "brand");}
+  function wkey(name){const w = D.weapons.find(x => x.name === name) || D.weapons[0]; return weaponKey(w);}
+}
+
+let S = null;
+try{
+  const h = location.hash.slice(1);
+  if(h) S = JSON.parse(decodeURIComponent(escape(atob(h.replace(/-/g,"+").replace(/_/g,"/")))));
+}catch(e){}
+if(!S){ try{ S = JSON.parse(localStorage.getItem("d2calc-state") || "null"); }catch(e){} }
+if(!S || !S.gear || !D.slots[SLOTS[0]]) S = defaultState();
+// 旧存档迁移：补两级菜单所需的武器类型
+S.wtype = (S.wtype && S.wtype.length === 2) ? S.wtype : [
+  (weaponByKey(S.weapons[0]) || D.weapons[0]).type,
+  (weaponByKey(S.weapons[1]) || D.weapons[0]).type
+];
+
+/* ================= 渲染：武器卡 ================= */
+function qualityTag(q){
+  const z = D.qualityZh[q] || q;
+  const cls = q === "Exotic" ? "q-exotic" : "q-high";
+  return `<span class="qtag ${cls}">${z}</span>`;
+}
+/* 7 类武器剪影（白色剪影，风格与装备槽图标一致） */
+const TYPE_SVG = {
+  "Assault Rifle": '<rect x="28" y="17" width="42" height="10" rx="1"/><rect x="32" y="14" width="34" height="3"/><rect x="70" y="19" width="26" height="5"/><rect x="88" y="13" width="3" height="7"/><path d="M10 18 L28 18 L28 29 L16 31 Z"/><path d="M46 27 L54 27 L50 39 L45 38 Z"/><path d="M57 27 L67 27 L64 41 L58 40 Z"/>',
+  "SMG": '<rect x="30" y="17" width="34" height="11" rx="1"/><rect x="64" y="19" width="12" height="5"/><rect x="14" y="19" width="16" height="3"/><rect x="11" y="17" width="3" height="8"/><path d="M32 28 L39 28 L36 40 L31 39 Z"/><rect x="44" y="28" width="8" height="18"/>',
+  "LMG": '<rect x="24" y="16" width="56" height="12" rx="1"/><rect x="80" y="19" width="22" height="5"/><path d="M8 17 L24 17 L24 30 L12 31 Z"/><path d="M46 28 L62 28 L60 42 L48 42 Z"/><path d="M90 24 L84 44 L88 44 L93 28 Z"/><path d="M96 24 L102 44 L98 44 L92 28 Z"/>',
+  "Shotgun": '<rect x="22" y="18" width="40" height="8" rx="1"/><rect x="62" y="19" width="40" height="4"/><rect x="62" y="25" width="30" height="3"/><rect x="66" y="27" width="14" height="5"/><rect x="100" y="16" width="2" height="3"/><path d="M8 19 L22 19 L22 30 L10 32 Z"/>',
+  "Rifle": '<rect x="26" y="17" width="44" height="10" rx="1"/><rect x="70" y="19" width="24" height="4"/><rect x="34" y="9" width="22" height="6" rx="1"/><rect x="38" y="15" width="3" height="3"/><rect x="50" y="15" width="3" height="3"/><path d="M10 18 L26 18 L26 30 L14 31 Z"/><path d="M40 27 L47 27 L44 38 L39 37 Z"/><path d="M52 27 L60 27 L58 38 L53 37 Z"/>',
+  "Marksman Rifle": '<rect x="20" y="18" width="56" height="9" rx="1"/><rect x="76" y="20" width="34" height="4"/><rect x="32" y="8" width="26" height="7" rx="1"/><rect x="36" y="15" width="3" height="4"/><rect x="50" y="15" width="3" height="4"/><rect x="8" y="15" width="12" height="3"/><path d="M6 17 L20 17 L20 32 L10 33 Z"/><path d="M98 24 L92 44 L96 44 L101 28 Z"/><path d="M104 24 L110 44 L106 44 L100 28 Z"/>',
+  "Pistol": '<rect x="28" y="14" width="46" height="9" rx="1"/><rect x="28" y="23" width="40" height="5"/><path d="M50 28 L64 28 L60 44 L48 43 Z"/><rect x="40" y="28" width="8" height="3"/>'
+};
+function typeSvg(type, w){
+  const body = TYPE_SVG[type] || TYPE_SVG["Assault Rifle"];
+  const h = Math.round(w * 0.4);
+  return `<svg class="wsvg" viewBox="0 0 120 48" style="width:${w}px;height:${h}px" aria-hidden="true" fill="currentColor">${body}</svg>`;
+}
+function frameCls(kind){
+  const k = (kind || "").toLowerCase();
+  return k === "exotic" ? " exotic" : (k === "set" || k === "gearset" ? " set" : "");
+}
+/* 天赋中文名 / 中文描述 / 图标（来自 td2-optimizer 官方天赋表） */
+function tz(n){return (D.talentZh && D.talentZh[String(n).toLowerCase()]) || null;}
+function talentName(n){const t = tz(n); return t ? t.z : n;}
+function talentIcon(n){const t = tz(n); return t && t.i ? `<img class="tal-ic" src="${t.i}" alt="" onerror="this.remove()">` : "";}
+function talentDesc(n, enDesc){
+  const t = tz(n);
+  return esc((t && t.d) || enDesc || "");
+}
+function talentRowHtml(name, descHtml, note){
+  return `<div class="talent-row"><div class="trow">${talentIcon(name)}<span class="tn">${esc(talentName(name))}</span></div>
+    <div class="td">${descHtml}</div>
+    <div class="fixed-note">${note}</div></div>`;
+}
+function wdisp(w){
+  const zh = w.zh || w.name;
+  return zh === w.name ? esc(zh) : esc(zh) + ' <span style="color:var(--muted);font-weight:400">' + esc(w.name) + '</span>';
+}
+function renderWeaponCard(i){
+  const w = weaponByKey(S.weapons[i]) || D.weapons[0];
+  const curType = (S.wtype && S.wtype[i]) || w.type;
+  const fixedTalent = w.talent;
+  const pool = D.weaponTalents.filter(t => t.types.includes(w.type) && t.q === "A");
+  let talentHtml;
+  if(fixedTalent){
+    const t = D.weaponTalents.find(x => x.name === fixedTalent);
+    talentHtml = talentRowHtml(fixedTalent,
+      (t ? talentDesc(fixedTalent, t.desc) : "") + (t && t.fx ? talentFxTag(t.fx) : ""),
+      "固定天赋（" + (D.qualityZh[w.quality] || w.quality) + "）");
+  }else{
+    const opts = ['<option value="">无天赋</option>'].concat(pool.map(t => {
+      const sel = S.wTalent[i] === t.name ? " selected" : "";
+      return `<option value="${esc(t.name)}"${sel}>${esc(talentName(t.name))}${t.fx ? fxShort(t.fx) : ""}</option>`;
+    })).join("");
+    talentHtml = `<label class="fl">武器天赋${S.assume ? "（勾选条件天赋时按常驻计）" : ""}</label><select data-w="${i}" data-k="talent">${opts}</select>`;
+  }
+  let attrHtml;
+  if(w.attr1){
+    attrHtml = `<label class="fl">固定词条</label><div class="detail"><b>${esc(zh(w.attr1))}</b> ${weaponAttrMax(w.attr1)}%</div>`;
+  }else{
+    const opts = D.weaponAttrPool.map(a =>
+      `<option value="${esc(a.stat)}"${S.wAttr[i] === a.stat ? " selected" : ""}>${esc(zh(a.stat))} +${a.max}%</option>`).join("");
+    attrHtml = `<label class="fl">武器词条 1</label><select data-w="${i}" data-k="wattr">${opts}</select>`;
+  }
+  return `<div class="wcard">
+    <div class="whead">
+      <div class="item-frame${frameCls(w.quality)}">${w.img ? `<img class="item-ic" src="${w.img}" alt="${esc(w.name)}" onerror="this.closest('.item-frame').classList.add('imgfail')">` : ""}${typeSvg(w.type, 58)}</div>
+      <div class="gmain">
+        <div class="wname">${qualityTag(w.quality)} ${wdisp(w)} <span style="color:var(--muted);font-weight:400;font-size:11px">${D.typeZh[w.type] || w.type}</span></div>
+        <label class="fl">武器类型</label>
+        <select data-w="${i}" data-k="wtype">${weaponTypeOptions(curType)}</select>
+        <label class="fl">选择武器</label>
+        <select data-w="${i}" data-k="weapon">${weaponListOf(curType).map(wq => {
+          const k = weaponKey(wq);
+          const nm = wq.zh && wq.zh !== wq.name ? wq.zh + " " + wq.name : wq.name;
+          return `<option value="${esc(k)}"${k === S.weapons[i] ? " selected" : ""}>[${D.qualityZh[wq.quality] || wq.quality}] ${esc(nm)}</option>`;
+        }).join("")}</select>
+      </div>
+    </div>
+    <div class="wstats">
+      <div class="ws"><b>${fmt(w.dmg)}</b><span>单发基础伤害</span></div>
+      <div class="ws"><b>${w.rpm}</b><span>射速 rpm</span></div>
+      <div class="ws"><b>${w.mag}</b><span>弹匣</span></div>
+      <div class="ws"><b>${(w.reload/1000).toFixed(1)}s</b><span>换弹</span></div>
+    </div>
+    <div class="detail" style="margin-top:6px">自带：爆头伤 +${w.hsd}% · 核心词条 ${esc(zh(w.core1.stat))} +${w.core1.max}%${w.core2 ? " · 副核心 " + esc(zh(w.core2.stat)) + " +" + w.core2.max + "%" : ""}</div>
+    ${attrHtml}${talentHtml}
+  </div>`;
+}
+function weaponTypeOptions(sel){
+  const types = [];
+  D.weapons.forEach(w => {if(!types.includes(w.type)) types.push(w.type);});
+  return types.map(t => `<option value="${esc(t)}"${t === sel ? " selected" : ""}>${D.typeZh[t] || t}</option>`).join("");
+}
+function weaponListOf(type){
+  const qrank = q => q === "High End" ? 0 : q === "Named" ? 1 : 2;
+  return D.weapons.filter(w => w.type === type)
+    .sort((a, b) => qrank(a.quality) - qrank(b.quality) || a.name.localeCompare(b.name));
+}
+function weaponListOfOld_unused(){
+  return "";
+}
+function weaponAttrMax(stat){
+  const a = D.weaponAttrPool.find(x => x.stat === stat);
+  return a ? a.max : 0;
+}
+function fxShort(fx){
+  const p = [];
+  if(fx.wd) p.push("武伤+" + fx.wd + "%");
+  if(fx.amp) p.push("增伤+" + fx.amp + "%");
+  if(fx.chd) p.push("暴伤+" + fx.chd + "%");
+  if(fx.chc) p.push("暴率+" + fx.chc + "%");
+  if(fx.hsd) p.push("爆头+" + fx.hsd + "%");
+  if(fx.mag) p.push("弹匣+" + fx.mag + "%");
+  if(fx.dta) p.push("甲伤+" + fx.dta + "%");
+  return p.length ? "（" + p.join(" ") + "）" : "";
+}
+const talentFxTag = fxShort;
+
+/* ================= 渲染：装备卡 ================= */
+function itemOpts(slot, sel){
+  const groups = {"brand":"品牌", "set":"套装", "named":"具名", "exotic":"奇特"};
+  let h = "";
+  for(const kind of Object.keys(groups)){
+    const items = D.slots[slot].filter(it => it.kind === kind);
+    if(!items.length) continue;
+    h += `<optgroup label="${groups[kind]}">` + items.map((it, j) => {
+      const realIdx = D.slots[slot].indexOf(it);
+      let label;
+      if(kind === "named" || kind === "exotic"){
+        label = it.zh ? it.zh + " " + it.name : it.name;
+      }else{
+        label = it.zh || it.brand;
+      }
+      return `<option value="${realIdx}"${realIdx === sel ? " selected" : ""}>${esc(label)}</option>`;
+    }).join("") + "</optgroup>";
+  }
+  return h;
+}
+function attrOpts(tier, sel){
+  const pool = D.attrs[tier];
+  const groups = {O:"进攻", D:"防御", U:"功能"};
+  let h = '<option value="">空</option>';
+  for(const t of Object.keys(groups)){
+    const list = pool.filter(a => a.type === t);
+    if(!list.length) continue;
+    h += `<optgroup label="${groups[t]}">` + list.map(a =>
+      `<option value="${esc(a.stat)}"${a.stat === sel ? " selected" : ""}>${esc(zh(a.stat))} +${PCT_ABS.has(a.stat) ? a.max : a.max + "%"}</option>`).join("") + "</optgroup>";
+  }
+  return h;
+}
+function attrMaxFor(item, stat){
+  if(!stat) return 0;
+  const tier = item.kind === "named" ? "N" : "A";
+  const hit = (D.attrs[tier] || []).find(a => a.stat === stat) || D.attrs.A.find(a => a.stat === stat);
+  return hit ? hit.max : 0;
+}
+function renderGearCard(slot){
+  const g = S.gear[slot];
+  const item = D.slots[slot][g.i] || D.slots[slot][0];
+  const tier = item.kind === "named" ? "N" : "A";
+  let talentHtml = "";
+  if(slot === "Chest" || slot === "Backpack"){
+    if(item.fixedTalent && item.talent){
+      const g2 = D.gearTalents[slot].find(t => t.name === item.talent);
+      const enDesc = g2 ? g2.desc : (D.talentDesc[item.talent] || "");
+      const note = item.kind === "set" ? "固定天赋（需 4 件套生效，此处未计入数值）" : "固定天赋";
+      talentHtml = talentRowHtml(item.talent, talentDesc(item.talent, enDesc), note);
+    }else{
+      const opts = ['<option value="">无天赋</option>'].concat(D.gearTalents[slot].map(t =>
+        `<option value="${esc(t.name)}"${g.talent === t.name ? " selected" : ""}>${esc(talentName(t.name))}${t.fx ? fxShort(t.fx) : ""}</option>`)).join("");
+      talentHtml = `<div class="talent-row"><div class="tn" style="color:var(--muted)">天赋</div>
+        <select data-slot="${slot}" data-k="talent">${opts}</select></div>`;
+    }
+  }else if(item.kind === "exotic" && item.talent){
+    talentHtml = talentRowHtml(item.talent, talentDesc(item.talent, D.talentDesc[item.talent] || ""), "奇特固定天赋（被动，未计入数值）");
+  }
+  const modHtml = ["Mask","Chest","Backpack"].includes(slot) ?
+    `<label class="fl">插件槽</label><select data-slot="${slot}" data-k="mod">${D.mods.map(m =>
+      `<option value="${esc(m.stat)}"${m.stat === g.mod ? " selected" : ""}>${esc(zh(m.stat))} +${m.max}%</option>`).join("")}</select>` : "";
+  const badge = item.icon ? `<img class="brand-badge" src="icons/brands/${item.icon}.png" alt="" onerror="this.remove()">` : "";
+  const mainImg = `<img class="item-ic" src="${item.img || "icons/slots/" + slot.toLowerCase() + ".png"}" alt="${SLOT_ZH[slot]}" onerror="this.onerror=null;this.src='icons/slots/${slot.toLowerCase()}.png'">`;
+  return `<div class="gcard">
+    <div class="ghead">
+      <div class="item-frame${frameCls(item.kind)}">${mainImg}${badge}</div>
+      <div class="gmain">
+        <div class="gtitle">${SLOT_ZH[slot]}<span class="qtag ${item.kind === "exotic" ? "q-exotic" : "q-high"}">${D.qualityZh[item.kind === "brand" ? "High End" : item.kind === "set" ? "Gearset" : item.kind === "named" ? "Named" : "Exotic"]}</span></div>
+        <select data-slot="${slot}" data-k="item">${itemOpts(slot, g.i)}</select>
+      </div>
+    </div>
+    <div class="core-pills">
+      <div class="cpill red${g.core === "red" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="red"><img src="icons/core-red.png" alt="">武器伤害 +15%</div>
+      <div class="cpill blue${g.core === "blue" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="blue"><img src="icons/core-blue.png" alt="">装甲 +170,000</div>
+      <div class="cpill yellow${g.core === "yellow" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="yellow"><img src="icons/core-yellow.png" alt="">技能分阶 +1</div>
+    </div>
+    <label class="fl">副词条 1</label><select data-slot="${slot}" data-k="a1">${attrOpts(tier, g.a1)}</select>
+    <label class="fl">副词条 2</label><select data-slot="${slot}" data-k="a2">${attrOpts(tier, g.a2)}</select>
+    ${modHtml}${talentHtml}
+  </div>`;
+}
+
+/* ================= 计算引擎（对齐 mx-division-builds statsService.js） ================= */
+const PCT_ABS = new Set(["Health", "Armor on Kill", "Armor Regeneration"]);
+function aggregate(){
+  const counts = {}, achieved = {}, add = {};
+  for(const slot of SLOTS){
+    const item = D.slots[slot][S.gear[slot].i];
+    if(item && item.brand) counts[item.brand] = (counts[item.brand] || 0) + 1;
+  }
+  for(const name of Object.keys(counts)){
+    const count = counts[name];
+    const set = isSet(name);
+    const keys = set ? SET_KEYS : BRAND_KEYS; // 品牌与套装的达标件数都是 idx+1
+    achieved[name] = {count, set, eff: []};
+    for(const k of keys){
+      if(count >= k + 1 && D.bonuses[name] && D.bonuses[name][k]){
+        const e = D.bonuses[name][k];
+        if(e.stat === "Talent") continue;
+        add[e.stat] = (add[e.stat] || 0) + e.val;
+        achieved[name].eff.push(zh(e.stat) + " +" + (PCT_ABS.has(e.stat) ? e.val : e.val + "%"));
+      }
+    }
+  }
+  return {counts, achieved, add};
+}
+function recalc(){
+  const {counts, achieved, add} = aggregate();
+  let awd = 0, amps = 1;
+  const g = {
+    chc: (add["Critical Hit Chance"] || 0) + (S.watch.chc || 0),
+    chd: (add["Critical Hit Damage"] || 0) + (S.watch.chd || 0),
+    hsd: (add["Headshot Damage"] || 0) + (S.watch.hsd || 0),
+    dta: add["Damage to Armor"] || 0,
+    dth: add["Damage to Health"] || 0,
+    rel: add["Reload Speed %"] || 0,
+    mag: add["Mag Size %"] || add["Magazine Size %"] || 0,
+  };
+  const talentNotes = [];
+  function routeStat(stat, val){
+    if(stat === "Critical Hit Chance") g.chc += val;
+    else if(stat === "Critical Hit Damage") g.chd += val;
+    else if(stat === "Headshot Damage") g.hsd += val;
+    else if(stat === "Damage to Armor") g.dta += val;
+    else if(stat === "Damage to Health") g.dth += val;
+    else if(stat === "Reload Speed %") g.rel += val;
+    else if(stat === "Mag Size %" || stat === "Magazine Size %") g.mag += val;
+  }
+  for(const slot of SLOTS){
+    const gs = S.gear[slot];
+    const item = D.slots[slot][gs.i];
+    if(gs.core === "red") awd += 15;
+    if(gs.mod){const m = D.mods.find(x => x.stat === gs.mod); if(m) routeStat(m.stat, m.max);}
+    for(const k of ["a1", "a2"]) if(gs[k]) routeStat(gs[k], attrMaxFor(item, gs[k]));
+    if(slot === "Chest" || slot === "Backpack"){
+      let tName = null, fx = null;
+      if(item && item.fixedTalent && item.talent){
+        tName = item.talent;
+        fx = (D.gearTalents[slot].find(t => t.name === tName) || {}).fx;
+      }else if(gs.talent){
+        tName = gs.talent;
+        fx = (D.gearTalents[slot].find(t => t.name === tName) || {}).fx;
+      }
+      if(tName && fx && S.assume){
+        if(fx.amp) amps *= 1 + fx.amp / 100; else if(fx.wd) awd += fx.wd;
+        talentNotes.push(talentName(tName) + fxShort(fx));
+      }else if(tName && fx){
+        talentNotes.push(talentName(tName) + "（未计入）");
+      }
+    }
+  }
+  const results = [];
+  for(let i = 0; i < 2; i++){
+    const w = weaponByKey(S.weapons[i]);
+    if(!w){results.push(null); continue;}
+    const typeStat = TYPE_DMG[w.type];
+    const typeDmg = (add[typeStat] || 0) + (S.spec ? 15 : 0) + (S.expertise || 0) + (S.watch.wd || 0) + w.core1.max;
+    const genWd = add["Weapon Damage"] || 0;
+    // 武器自身的副核心 / 词条 / 天赋按每把枪独立计算，不污染共享数值
+    let wChc = 0, wChd = 0, wHsd = 0, wDta = 0, wDth = 0;
+    function wRoute(stat, val){
+      if(stat === "Critical Hit Chance") wChc += val;
+      else if(stat === "Critical Hit Damage") wChd += val;
+      else if(stat === "Headshot Damage") wHsd += val;
+      else if(stat === "Damage to Armor") wDta += val;
+      else if(stat === "Damage to Health") wDth += val;
+    }
+    if(w.core2) wRoute(w.core2.stat, w.core2.max);
+    if(w.attr1) wRoute(w.attr1, weaponAttrMax(w.attr1));
+    else if(S.wAttr[i]) wRoute(S.wAttr[i], weaponAttrMax(S.wAttr[i]));
+    let fxWd = 0, fxChd = 0, fxMag = 0, fxNote = "";
+    if(!w.talent){
+      const t = D.weaponTalents.find(x => x.name === S.wTalent[i]);
+      if(t && t.fx && S.assume){
+        fxWd = t.fx.wd || 0; fxChd = t.fx.chd || 0; fxMag = t.fx.mag || 0;
+        fxNote = talentName(t.name) + fxShort(t.fx);
+      }else if(t){fxNote = talentName(t.name) + "（未计入）";}
+    }
+    const additive = awd + typeDmg + genWd + fxWd;
+    const flat = w.dmg * (1 + additive / 100);
+    const chcT = g.chc + wChc, cap = Math.min(chcT, 60), over = chcT > 60;
+    const chdT = 25 + g.chd + wChd + fxChd;
+    const hsdT = w.hsd + g.hsd + wHsd;
+    const dtaT = g.dta + wDta;
+    const critMult = 1 + cap * chdT / 10000 + (S.hsRate / 100) * (hsdT / 100);
+    const expected = flat * critMult;
+    const vsArmor = expected * (1 + dtaT / 100) * amps;
+    const magSize = w.mag * (1 + (g.mag + fxMag) / 100);
+    const magTime = magSize / (w.rpm / 60);
+    const reloadT = (w.reload / 1000) / (1 + g.rel / 100);
+    const burst = vsArmor * w.rpm / 60;
+    const cycle = (magTime + reloadT) > 0 ? burst * magTime / (magTime + reloadT) : burst;
+    results.push({w, additive, typeDmg, genWd, awd, chcT, over, chdT, hsdT, dta: dtaT, expected, vsArmor, burst, cycle, magDmg: vsArmor * magSize, magSize, reloadT, fxNote});
+  }
+  return {results, counts, achieved, talentNotes, amps};
+}
+
+/* ================= 渲染：结果 / 汇总 ================= */
+function renderResults(R){
+  let h = "";
+  const labels = ["主武器", "副武器"];
+  let maxBurst = 0;
+  R.results.forEach(r => {if(r) maxBurst = Math.max(maxBurst, r.burst);});
+  R.results.forEach((r, i) => {
+    if(!r){
+      h += `<div class="wres detail">${labels[i]}未选择武器</div>`;
+      return;
+    }
+    const w = r.w;
+    h += `<div class="wres">
+      <div class="wt" style="align-items:center">${typeSvg(w.type, 34)} ${qualityTag(w.quality)} ${wdisp(w)} <span style="color:var(--muted);font-weight:400">${D.typeZh[w.type] || w.type}</span></div>
+      <div class="kpis">
+        <div class="kpi gold"><b>${fmt(r.vsArmor)}</b><span>期望单发（对装甲）</span></div>
+        <div class="kpi acc"><b>${fmt(r.burst)}</b><span>爆发 DPS（不含换弹）</span></div>
+        <div class="kpi"><b>${fmt(r.cycle)}</b><span>循环 DPS（含换弹）</span></div>
+        <div class="kpi"><b>${fmt(r.magDmg)}</b><span>弹匣伤害（${Math.round(r.magSize)} 发）</span></div>
+      </div>
+      <div class="bar-wrap" title="爆发 DPS 对比"><div class="bar" style="width:${maxBurst ? Math.max(3, r.burst / maxBurst * 100) : 0}%"></div></div>
+      <div class="detail">武器伤合计 <b>+${r.additive.toFixed(1)}%</b>（核心/天赋 +${r.awd} · 类型伤 +${r.typeDmg.toFixed(1)} · 通用 +${r.genWd.toFixed(1)}）
+        · 暴击率 <b>${r.chcT.toFixed(1)}%</b>${r.over ? '<span class="warn">（超 60% 上限，按 60% 计）</span>' : ""}
+        · 暴伤 <b>+${r.chdT}%</b>（含枪械自带 25） · 爆头伤 +${r.hsdT}% · 对装甲 +${r.dta}%
+        · 换弹 <b>${r.reloadT.toFixed(2)}s</b>${r.fxNote ? " · 天赋：" + esc(r.fxNote) : ""}
+      </div>
+    </div>`;
+  });
+  if(R.talentNotes.length){
+    h += `<div class="detail" style="margin-top:8px">计入的装备天赋：${R.talentNotes.map(esc).join("；")}${R.amps > 1 ? `；独立增伤乘区 ×${R.amps.toFixed(2)}` : ""}</div>`;
+  }
+  $("#results").innerHTML = h;
+}
+function renderBrandSummary(R){
+  let h = "";
+  const names = Object.keys(R.counts);
+  if(!names.length){$("#brandSummary").textContent = "未装备任何品牌 / 套装"; return;}
+  for(const n of names.sort((a, b) => R.counts[b] - R.counts[a])){
+    const a = R.achieved[n];
+    const bz = D.brandZh && D.brandZh[n];
+    let iconFile = "";
+    for(const s of SLOTS){
+      const hit = D.slots[s].find(it => it.brand === n);
+      if(hit && hit.icon){iconFile = hit.icon; break;}
+    }
+    h += `<div class="brow"><span class="cnt">${a.count}件</span>
+      ${iconFile ? `<img src="icons/brands/${iconFile}.png" alt="">` : ""}
+      <span title="${esc(n)}">${esc(bz ? bz.z : n)}${a.set ? "（套装）" : ""}</span>
+      <span class="ef">${a.eff.length ? esc(a.eff.join("，")) : (a.set ? "未达成 2 件套" : "")}</span></div>`;
+  }
+  $("#brandSummary").innerHTML = h;
+}
+
+/* ================= 事件 ================= */
+function save(){localStorage.setItem("d2calc-state", JSON.stringify(S));}
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1800);
+}
+function renderAll(){
+  $("#weaponCards").innerHTML = renderWeaponCard(0) + renderWeaponCard(1);
+  $("#gearGrid").innerHTML = SLOTS.map(renderGearCard).join("");
+  const R = recalc();
+  renderResults(R); renderBrandSummary(R);
+}
+function bind(){
+  document.body.addEventListener("change", e => {
+    const el = e.target;
+    const w = el.getAttribute("data-w"), k = el.getAttribute("data-k");
+    if(w !== null && k){
+      const i = +w;
+      if(k === "wtype"){
+        S.wtype = S.wtype || [];
+        S.wtype[i] = el.value;
+        const list = weaponListOf(el.value);
+        if(list.length){
+          S.weapons[i] = weaponKey(list[0]);
+          S.wTalent[i] = null; S.wAttr[i] = "Critical Hit Damage";
+        }
+        renderAll();
+      }else if(k === "weapon"){
+        S.weapons[i] = el.value;
+        const nw = weaponByKey(S.weapons[i]);
+        S.wtype = S.wtype || [];
+        if(nw) S.wtype[i] = nw.type;
+        S.wTalent[i] = null; S.wAttr[i] = "Critical Hit Damage";
+        renderAll();
+      }else if(k === "talent"){S.wTalent[i] = el.value || null;}
+      else if(k === "wattr"){S.wAttr[i] = el.value;}
+      save(); const R = recalc(); renderResults(R);
+      return;
+    }
+    const slot = el.getAttribute("data-slot"), k2 = el.getAttribute("data-k");
+    if(slot && k2){
+      const g = S.gear[slot];
+      if(k2 === "item"){g.i = +el.value; g.talent = null; renderAll();}
+      else if(k2 === "core"){g.core = el.getAttribute("data-v"); renderGearPills(slot);}
+      else if(k2 === "a1"){g.a1 = el.value;}
+      else if(k2 === "a2"){g.a2 = el.value;}
+      else if(k2 === "mod"){g.mod = el.value;}
+      else if(k2 === "talent"){g.talent = el.value || null;}
+      save(); const R = recalc(); renderResults(R); if(k2 !== "core") renderBrandSummary(recalc());
+      return;
+    }
+  });
+  document.body.addEventListener("click", e => {
+    const p = e.target.closest(".cpill");
+    if(p){
+      S.gear[p.getAttribute("data-slot")].core = p.getAttribute("data-v");
+      save(); renderGearPills(p.getAttribute("data-slot")); const R = recalc(); renderResults(R);
+    }
+  });
+  $("#spec").innerHTML = '<option value="">无</option>' + D.specs.map(s =>
+    `<option value="${esc(s.name)}"${S.spec === s.name ? " selected" : ""}>${D.specZh[s.name] || s.name}</option>`).join("");
+  $("#spec").addEventListener("change", e => {S.spec = e.target.value || null; save(); renderResults(recalc());});
+  const numBind = [["#watchWd","wd"],["#watchChc","chc"],["#watchChd","chd"],["#expertise",null]];
+  for(const [sel, key] of numBind){
+    $(sel).addEventListener("input", e => {
+      const v = Math.max(0, +e.target.value || 0);
+      if(key) S.watch[key] = v; else S.expertise = v;
+      save(); renderResults(recalc());
+    });
+  }
+  const hs = $("#hsRate");
+  hs.value = S.hsRate; $("#hsRateV").textContent = S.hsRate;
+  hs.addEventListener("input", e => {S.hsRate = +e.target.value; $("#hsRateV").textContent = S.hsRate; save(); renderResults(recalc());});
+  $("#assumeTalents").checked = S.assume;
+  $("#assumeTalents").addEventListener("change", e => {S.assume = e.target.checked; save(); renderAll();});
+  // 分享 / 导入导出
+  $("#btnShare").addEventListener("click", () => {
+    const payload = btoa(unescape(encodeURIComponent(JSON.stringify(S)))).replace(/\+/g, "-").replace(/\//g, "_");
+    const url = location.origin + location.pathname + "#" + payload;
+    (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(
+      () => toast("分享链接已复制，粘贴给朋友即可还原配装"),
+      () => {location.hash = payload; toast("链接已生成在地址栏，复制即可分享");}
+    );
+  });
+  $("#btnExport").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(S, null, 2)], {type: "application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "division2-build.json"; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  });
+  $("#btnImport").addEventListener("click", () => $("#fileImport").click());
+  $("#fileImport").addEventListener("change", e => {
+    const f = e.target.files[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try{
+        const st = JSON.parse(rd.result);
+        if(!st.gear || !st.weapons) throw new Error("bad");
+        S = st; save(); location.hash = ""; renderAll(); syncInputs(); toast("配装导入成功");
+      }catch(err){toast("导入失败：文件格式不正确");}
+    };
+    rd.readAsText(f);
+  });
+  $("#btnReset").addEventListener("click", () => {
+    S = defaultState(); save(); location.hash = ""; renderAll(); syncInputs(); toast("已重置为示例配装");
+  });
+}
+function renderGearPills(slot){
+  const g = S.gear[slot];
+  document.querySelectorAll(`.cpill[data-slot="${slot}"]`).forEach(p =>
+    p.classList.toggle("on", p.getAttribute("data-v") === g.core));
+}
+function syncInputs(){
+  $("#spec").value = S.spec || "";
+  $("#watchWd").value = S.watch.wd; $("#watchChc").value = S.watch.chc;
+  $("#watchChd").value = S.watch.chd; $("#expertise").value = S.expertise;
+  $("#hsRate").value = S.hsRate; $("#hsRateV").textContent = S.hsRate;
+  $("#assumeTalents").checked = S.assume;
+}
+
+/* ================= 启动 ================= */
+$("#dbver").textContent = "数据 v" + D.version;
+$("#dbver2").textContent = D.version;
+syncInputs();
+renderAll();
+bind();
+</script>
+</body>
+</html>
