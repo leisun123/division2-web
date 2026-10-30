@@ -8,7 +8,7 @@
 :root{
   --bg:#0f1317; --panel:#171d23; --panel2:#1d242c; --border:#2a333d; --border2:#39434e;
   --text:#d9dee3; --muted:#8b949d; --accent:#f0862d; --accent-dim:#b35f1d;
-  --red:#e0564f; --blue:#4f8fca; --yellow:#d9b13b; --gold:#d4a940; --teal:#45a29e; --green:#7bb662;
+  --red:#e0564f; --blue:#4f8fca; --yellow:#d9b13b; --gold:#d4a940; --teal:#45a29e; --green:#7bb662; --purple:#a06cd5;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
@@ -38,19 +38,32 @@ label.fl{display:block;font-size:11px;color:var(--muted);margin:8px 0 3px}
 .wcard{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px}
 .item-frame{position:relative;flex:none;width:120px;height:120px;background:linear-gradient(180deg,#242c35,#151b21);border:2px solid var(--gold);border-radius:12px;display:flex;align-items:center;justify-content:center}
 .item-frame.exotic{border-color:var(--red)}
+.item-frame.proto{border-color:var(--purple)}
 .item-frame.set{border-color:var(--teal)}
 .item-frame .item-ic{width:104px;height:104px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.65))}
 .item-frame img.item-ic ~ .wsvg{display:none}
 .item-frame.imgfail img.item-ic{display:none}
 .item-frame.imgfail .wsvg{display:block}
 .tal-ic{width:26px;height:26px;flex:none;border-radius:5px;background:#0c1013;border:1px solid var(--border)}
+.wsel{position:relative}
+.wsel-btn{width:100%;text-align:left;background:#10151a;color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-size:13px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wsel-btn:hover{border-color:var(--accent-dim)}
+.wsel-panel{position:absolute;z-index:30;top:calc(100% + 4px);left:0;right:0;background:#10151a;border:1px solid var(--border2);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.55);max-height:300px;display:flex;flex-direction:column}
+.wsel-panel[hidden]{display:none}
+.wsel-filter{margin:8px;width:calc(100% - 16px)}
+.wsel-list{overflow:auto;padding:0 0 6px}
+.wsel-grp[hidden]{display:none}
+.wsel-group{font-size:11px;color:var(--muted);padding:6px 12px 2px;letter-spacing:1px}
+.wsel-item{padding:5px 12px;font-size:13px;cursor:pointer}
+.wsel-item:hover{background:#1d242c}
+.wsel-item[hidden]{display:none}
 .item-frame .wsvg{width:94px;height:38px;color:#e6ebf0}
 .item-frame .brand-badge{position:absolute;right:-9px;bottom:-9px;width:40px;height:40px;background:#10151a;border:1px solid var(--border2);border-radius:9px;padding:3px}
 .whead,.ghead{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px}
 .gmain{flex:1;min-width:0}
 .wcard .wname{display:flex;align-items:center;gap:8px;font-weight:600;flex-wrap:wrap}
 .qtag{font-size:10px;border-radius:3px;padding:1px 5px;color:#10151a;font-weight:700}
-.q-high{background:var(--gold)} .q-named{background:var(--gold)} .q-exotic{background:var(--red);color:#fff}
+.q-high{background:var(--gold)} .q-named{background:var(--gold)} .q-exotic{background:var(--red);color:#fff} .q-proto{background:var(--purple);color:#fff}
 .wstats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
 .ws{background:#10151a;border-radius:6px;padding:5px 8px}
 .ws b{display:block;font-size:13px;color:var(--text);font-variant-numeric:tabular-nums}
@@ -263,7 +276,7 @@ if(!S || !S.gear || !D.slots[SLOTS[0]]) S = defaultState();
 /* ================= 渲染：武器卡 ================= */
 function qualityTag(q){
   const z = D.qualityZh[q] || q;
-  const cls = (q === "Exotic" || q === "Prototype") ? "q-exotic" : "q-high";
+  const cls = q === "Exotic" ? "q-exotic" : q === "Prototype" ? "q-proto" : "q-high";
   return `<span class="qtag ${cls}">${z}</span>`;
 }
 /* 7 类武器剪影（白色剪影，风格与装备槽图标一致） */
@@ -283,7 +296,9 @@ function typeSvg(type, w){
 }
 function frameCls(kind){
   const k = (kind || "").toLowerCase();
-  return (k === "exotic" || k === "prototype") ? " exotic" : (k === "set" || k === "gearset" ? " set" : "");
+  if(k === "exotic")return " exotic";
+  if(k === "prototype")return " proto";
+  return (k === "set" || k === "gearset") ? " set" : "";
 }
 /* 天赋中文名 / 中文描述 / 图标（来自 td2-optimizer 官方天赋表） */
 function tz(n){return (D.talentZh && D.talentZh[String(n).toLowerCase()]) || null;}
@@ -303,7 +318,44 @@ function wdisp(w){
   return zh === w.name ? esc(zh) : esc(zh) + ' <span style="color:var(--muted);font-weight:400">' + esc(w.name) + '</span>';
 }
 const WLABELS = ["主武器", "副武器", "手枪"];
-const QC_COLOR = {"High End":"#d4a940","Named":"#e8edf2","Exotic":"#e0564f","Prototype":"#e0564f"};
+function wselHtml(i, type){
+  const list = weaponListOf(type);
+  const curW = weaponByKey(S.weapons[i]) || list[0];
+  const groups = [["High End", "金装"], ["Named", "具名"], ["Exotic", "奇特"], ["Prototype", "原型"]];
+  const grp = groups.map(([q, label]) => {
+    const ws = list.filter(wq => wq.quality === q);
+    if(!ws.length)return "";
+    return '<div class="wsel-grp"><div class="wsel-group">' + label + '</div>' + ws.map(wq => {
+      const k = weaponKey(wq);
+      const nm = wq.zh && wq.zh !== wq.name ? wq.zh + " " + wq.name : wq.name;
+      return '<div class="wsel-item" role="option" data-wi="' + i + '" data-key="' + esc(k) + '" style="color:' + (QC_COLOR[wq.quality] || "inherit") + '">' + esc(nm) + '</div>';
+    }).join("") + '</div>';
+  }).join("");
+  const curName = curW.zh && curW.zh !== curW.name ? curW.zh + " " + curW.name : (curW.zh || curW.name);
+  return '<div class="wsel" data-wsel="' + i + '">' +
+    '<button type="button" class="wsel-btn" aria-haspopup="listbox"><span style="color:' + (QC_COLOR[curW.quality] || "inherit") + '">' + esc(curName) + '</span></button>' +
+    '<div class="wsel-panel" hidden><input class="wsel-filter" placeholder="搜索武器（中英文均可）…"><div class="wsel-list">' + grp + '</div></div></div>';
+}
+function filterWsel(panel){
+  const q = panel.querySelector(".wsel-filter").value.trim().toLowerCase();
+  panel.querySelectorAll(".wsel-grp").forEach(grp => {
+    let vis = 0;
+    grp.querySelectorAll(".wsel-item").forEach(it => {
+      it.hidden = !!q && !it.textContent.toLowerCase().includes(q);
+      if(!it.hidden)vis++;
+    });
+    grp.hidden = vis === 0;
+  });
+}
+function selectWeapon(i, key){
+  S.weapons[i] = key;
+  const nw = weaponByKey(key);
+  S.wtype = S.wtype || [];
+  if(nw)S.wtype[i] = nw.type;
+  S.wTalent[i] = null; S.wAttr[i] = "Critical Hit Damage";
+  save(); renderAll();
+}
+const QC_COLOR = {"High End":"#d4a940","Named":"#e8edf2","Exotic":"#e0564f","Prototype":"#a06cd5"};
 function renderWeaponCard(i){
   const w = weaponByKey(S.weapons[i]) || D.weapons[0];
   const curType = i === 2 ? "Pistol" : ((S.wtype && S.wtype[i]) || w.type);
@@ -338,11 +390,7 @@ function renderWeaponCard(i){
         <div class="wname"><span style="color:${QC_COLOR[w.quality] || "var(--text)"}">${wdisp(w)}</span> <span style="color:var(--muted);font-weight:400;font-size:11px">${D.typeZh[w.type] || w.type}</span></div>
         ${i === 2 ? "" : '<label class="fl">武器类型</label><select data-w="' + i + '" data-k="wtype">' + weaponTypeOptions(curType) + '</select>'}
         <label class="fl">选择武器</label>
-        <select data-w="${i}" data-k="weapon">${weaponListOf(curType).map(wq => {
-          const k = weaponKey(wq);
-          const nm = wq.zh && wq.zh !== wq.name ? wq.zh + " " + wq.name : wq.name;
-          return `<option value="${esc(k)}"${k === S.weapons[i] ? " selected" : ""} style="color:${QC_COLOR[wq.quality] || "inherit"}">${esc(nm)}</option>`;
-        }).join("")}</select>
+        ${wselHtml(i, curType)}
       </div>
     </div>
     <div class="wstats">
@@ -700,7 +748,7 @@ function t(g, str, x, y, o){
   g.fillText(str, x, y);
   g.textAlign = "left";
 }
-function qualityColor(q){return q === "Exotic" ? "#e0564f" : q === "Gearset" ? "#45a29e" : "#d4a940";}
+function qualityColor(q){return q === "Exotic" ? "#e0564f" : q === "Prototype" ? "#a06cd5" : q === "Gearset" ? "#45a29e" : "#d4a940";}
 async function generateBuildImage(){
   const btn = $("#btnImage");
   btn.disabled = true; const oldTxt = btn.textContent; btn.textContent = "生成中…";
@@ -800,6 +848,33 @@ async function generateBuildImage(){
 }
 
 function bind(){
+  document.body.addEventListener("click", e => {
+    const btn = e.target.closest(".wsel-btn");
+    if(btn){
+      const box = btn.closest(".wsel");
+      const panel = box.querySelector(".wsel-panel");
+      const wasOpen = !panel.hidden;
+      document.querySelectorAll(".wsel-panel").forEach(p2 => p2.hidden = true);
+      panel.hidden = wasOpen;
+      if(!panel.hidden){
+        const f = panel.querySelector(".wsel-filter");
+        f.value = ""; filterWsel(panel); f.focus();
+      }
+      return;
+    }
+    const item = e.target.closest(".wsel-item");
+    if(item){
+      item.closest(".wsel").querySelector(".wsel-panel").hidden = true;
+      selectWeapon(+item.getAttribute("data-wi"), item.getAttribute("data-key"));
+      return;
+    }
+    if(!e.target.closest(".wsel-panel")){
+      document.querySelectorAll(".wsel-panel").forEach(p2 => p2.hidden = true);
+    }
+  });
+  document.body.addEventListener("input", e => {
+    if(e.target.classList.contains("wsel-filter"))filterWsel(e.target.closest(".wsel-panel"));
+  });
   document.body.addEventListener("change", e => {
     const el = e.target;
     const w = el.getAttribute("data-w"), k = el.getAttribute("data-k");
