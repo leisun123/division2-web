@@ -39,6 +39,10 @@ label.fl{display:block;font-size:11px;color:var(--muted);margin:8px 0 3px}
 .item-frame{position:relative;flex:none;width:120px;height:120px;background:linear-gradient(180deg,#242c35,#151b21);border:2px solid var(--gold);border-radius:12px;display:flex;align-items:center;justify-content:center}
 .item-frame.exotic{border-color:var(--red)}
 .item-frame.proto{border-color:var(--purple)}
+.ptoggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text);cursor:pointer;user-select:none;margin-top:8px}
+.ptoggle input{accent-color:var(--purple);width:14px;height:14px;cursor:pointer}
+.ptoggle input:disabled{cursor:default}
+.proto-row{margin-top:2px}
 .item-frame.set{border-color:var(--teal)}
 .item-frame .item-ic{width:104px;height:104px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.65))}
 .item-frame img.item-ic ~ .wsvg{display:none}
@@ -201,6 +205,7 @@ footer{padding:14px 20px 30px;color:var(--muted);font-size:11px;line-height:1.8;
       · 公式：期望伤害 = 基础伤害 × (1 + 全武器伤 + 武器类型伤 + 专精/手表/专精度) × (1 + 暴率×暴伤 + 爆头率×爆头伤) × 独立增伤，对装甲再乘 (1 + 对装甲伤)。<br>
       · 满级 40 满值：红核 = 武器伤害 +15%，蓝核 = 装甲 +170,000，黄核 = 技能分阶 +1；暴击率上限 60%，每把枪自带 25% 暴伤与面板爆头伤。<br>
       · 具名 / 奇特 / 套装 4 件套天赋为固定天赋，品牌件可在下拉中选择通用天赋。<br>
+      · 原型（TU26）：金装/具名/套装/非奇特武器可在改造台升为原型——词条上限 ×1.5（红核 +22.5%、蓝核 255,000、黄核 = 技能分阶 +1.5）并获得 1 个插件槽（9 选 1，等级随专精 0-10）。回声插件按触发几率的期望增伤计入，其余插件仅展示。<br>
       · 换弹、弹匣容量参与循环 DPS 与弹匣伤害；射速加成暂未计入。<br>
       · 配置自动保存在本机，可用「复制分享链接」把整套配装编码进网址发给朋友。
     </div>
@@ -248,9 +253,10 @@ function defaultState(){
     Holster:{i:idx("Grupo Sombra S.A.","Holster"),core:"red",a1:"Critical Hit Damage",a2:"Critical Hit Chance",mod:null,talent:null},
     Kneepads:{i:idx("Sokolov Concern","Kneepads"),core:"red",a1:"Critical Hit Chance",a2:"Critical Hit Damage",mod:null,talent:null},
   };
-  for(const s of SLOTS) gear[s] = preset[s];
+  for(const s of SLOTS) gear[s] = Object.assign({proto:false, aug:null}, preset[s]);
   return {
     weapons:[wkey("AK-M"), wkey("Model 700"), wkey("D50")], wtype:["Assault Rifle","Marksman Rifle","Pistol"], wTalent:[null,null,null], wAttr:["Critical Hit Damage","Critical Hit Damage","Critical Hit Damage"],
+    wproto:[false,false,false], waug:[null,null,null],
     assume:true, spec:null, watch:{wd:15,chc:3,chd:10,hsd:10}, expertise:10, hsRate:0, gear
   };
   function idx(brand, slot){return D.slots[slot].findIndex(it => it.brand === brand && it.kind === "brand");}
@@ -272,6 +278,12 @@ if(!S || !S.gear || !D.slots[SLOTS[0]]) S = defaultState();
   while(S.wtype.length < 3)S.wtype.push(dflt.wtype[S.wtype.length]);
   while(S.wTalent.length < 3)S.wTalent.push(null);
   while(S.wAttr.length < 3)S.wAttr.push("Critical Hit Damage");
+  // 原型系统字段（TU26 后加入）
+  S.wproto = (S.wproto && S.wproto.length) ? S.wproto : [];
+  while(S.wproto.length < 3)S.wproto.push(false);
+  S.waug = (S.waug && S.waug.length) ? S.waug : [];
+  while(S.waug.length < 3)S.waug.push(null);
+  for(const s of SLOTS) if(S.gear[s] && S.gear[s].proto === undefined){S.gear[s].proto = false; S.gear[s].aug = null;}
 }
 
 /* ================= 渲染：武器卡 ================= */
@@ -314,6 +326,28 @@ function talentRowHtml(name, descHtml, note){
     <div class="td">${descHtml}</div>
     <div class="fixed-note">${note}</div></div>`;
 }
+/* ================= 原型系统（TU26「Rise Up」）=================
+   金装/具名/套装可在改造台升为原型：词条上限 ×1.5（红核 15→22.5%、蓝核 17 万→25.5 万、黄核=技能分阶 1.5），
+   并获得 1 个插件槽（9 选 1 共享池，等级随专精 0-10）；奇特不可升级。 */
+const PROTO = D.proto || {mult:1.5, yellowCore:1.5, augments:[]};
+function augByName(n){return (PROTO.augments || []).find(a => a.en === n) || null;}
+function augLvl(){return Math.max(0, Math.min(10, S.expertise || 0));}
+function augPct(a){return (Math.round((a.base + a.step * augLvl()) * 1000) / 10) + "%";}
+function augOptions(sel){
+  return ['<option value="">无插件</option>'].concat((PROTO.augments || []).map(a =>
+    `<option value="${esc(a.en)}"${a.en === sel ? " selected" : ""}>${esc(a.zh)} ${esc(a.en)}</option>`)).join("");
+}
+function augInfoHtml(sel){
+  const a = augByName(sel);
+  if(!a) return "";
+  return `<div class="talent-row"><div class="trow">${a.icon ? `<img class="tal-ic" src="${a.icon}" alt="" onerror="this.remove()">` : ""}<span class="tn" style="color:var(--purple)">${esc(a.zh)} ${esc(a.en)}</span></div>
+    <div class="td">${esc(a.desc)}</div>
+    <div class="fixed-note">插件等级 ${augLvl()}（随专精等级）· 当前 ${augPct(a)} · 满级 ${Math.round((a.base + a.step * 10) * 1000) / 10}%</div></div>`;
+}
+function isProtoW(i){
+  const w = weaponByKey(S.weapons[i]);
+  return !!w && w.quality !== "Exotic" && (S.wproto[i] || w.quality === "Prototype");
+}
 function wdisp(w){
   const zh = w.zh || w.name;
   return zh === w.name ? esc(zh) : esc(zh) + ' <span style="color:var(--muted);font-weight:400">' + esc(w.name) + '</span>';
@@ -324,6 +358,8 @@ function renderWeaponCard(i){
   const w = weaponByKey(S.weapons[i]) || D.weapons[0];
   const curType = i === 2 ? "Pistol" : ((S.wtype && S.wtype[i]) || w.type);
   const fixedTalent = w.talent;
+  const wproto = isProtoW(i);
+  const wmult = wproto ? PROTO.mult : 1;
   const pool = D.weaponTalents.filter(t => t.types.includes(w.type) && t.q === "A");
   let talentHtml;
   if(fixedTalent){
@@ -346,9 +382,12 @@ function renderWeaponCard(i){
       `<option value="${esc(a.stat)}"${S.wAttr[i] === a.stat ? " selected" : ""}>${esc(zh(a.stat))} +${a.max}%</option>`).join("");
     attrHtml = `<label class="fl">武器词条 1</label><select data-w="${i}" data-k="wattr">${opts}</select>`;
   }
+  const wprotoRow = w.quality === "Exotic" ? "" :
+    `<div class="proto-row"><label class="ptoggle"><input type="checkbox" data-w="${i}" data-k="wproto"${wproto ? " checked" : ""}${w.quality === "Prototype" ? " disabled" : ""}>原型（词条 ×1.5 + 插件槽）${w.quality === "Prototype" ? " · 自带" : ""}</label></div>` +
+    (wproto ? `<label class="fl">原型插件</label><select data-w="${i}" data-k="waug">${augOptions(S.waug[i])}</select>${augInfoHtml(S.waug[i])}` : "");
   return `<div class="wcard">
     <div class="whead">
-      <div class="item-frame${frameCls(w.quality)}">${w.img ? `<img class="item-ic" src="${w.img}" alt="${esc(w.name)}" onerror="this.closest('.item-frame').classList.add('imgfail')">` : ""}${typeSvg(w.type, 58)}</div>
+      <div class="item-frame${frameCls(w.quality)}${wproto && w.quality !== "Prototype" ? " proto" : ""}">${w.img ? `<img class="item-ic" src="${w.img}" alt="${esc(w.name)}" onerror="this.closest('.item-frame').classList.add('imgfail')">` : ""}${typeSvg(w.type, 58)}</div>
       <div class="gmain">
         <div class="text-small text-muted" style="margin-bottom:2px">${WLABELS[i] || ""}</div>
         <div class="wname"><span style="color:${QC_COLOR[w.quality] || "var(--text)"}">${wdisp(w)}</span> <span style="color:var(--muted);font-weight:400;font-size:11px">${D.typeZh[w.type] || w.type}</span></div>
@@ -367,7 +406,8 @@ function renderWeaponCard(i){
       <div class="ws"><b>${w.mag}</b><span>弹匣</span></div>
       <div class="ws"><b>${(w.reload/1000).toFixed(1)}s</b><span>换弹</span></div>
     </div>
-    <div class="detail" style="margin-top:6px">自带：爆头伤 +${w.hsd}% · 核心词条 ${esc(zh(w.core1.stat))} +${w.core1.max}%${w.core2 ? " · 副核心 " + esc(zh(w.core2.stat)) + " +" + w.core2.max + "%" : ""}</div>
+    <div class="detail" style="margin-top:6px">自带：爆头伤 +${w.hsd}% · 核心词条 ${esc(zh(w.core1.stat))} +${Math.round(w.core1.max * wmult * 10) / 10}%${w.core2 ? " · 副核心 " + esc(zh(w.core2.stat)) + " +" + Math.round(w.core2.max * wmult * 10) / 10 + "%" : ""}${wproto ? ' · <span style="color:var(--purple)">原型词条 ×1.5</span>' : ""}</div>
+    ${wprotoRow}
     ${attrHtml}${talentHtml}
   </div>`;
 }
@@ -422,15 +462,18 @@ function itemOpts(slot, sel){
   }
   return h;
 }
-function attrOpts(tier, sel){
+function attrOpts(tier, sel, mult){
+  mult = mult || 1;
   const pool = D.attrs[tier];
   const groups = {O:"进攻", D:"防御", U:"功能"};
   let h = '<option value="">空</option>';
   for(const t of Object.keys(groups)){
     const list = pool.filter(a => a.type === t);
     if(!list.length) continue;
-    h += `<optgroup label="${groups[t]}">` + list.map(a =>
-      `<option value="${esc(a.stat)}"${a.stat === sel ? " selected" : ""}>${esc(zh(a.stat))} +${PCT_ABS.has(a.stat) ? a.max : a.max + "%"}</option>`).join("") + "</optgroup>";
+    h += `<optgroup label="${groups[t]}">` + list.map(a => {
+      const m = Math.round(a.max * mult * 10) / 10;
+      return `<option value="${esc(a.stat)}"${a.stat === sel ? " selected" : ""}>${esc(zh(a.stat))} +${PCT_ABS.has(a.stat) ? m : m + "%"}</option>`;
+    }).join("") + "</optgroup>";
   }
   return h;
 }
@@ -444,6 +487,8 @@ function renderGearCard(slot){
   const g = S.gear[slot];
   const item = D.slots[slot][g.i] || D.slots[slot][0];
   const tier = item.kind === "named" ? "N" : "A";
+  const proto = !!g.proto && item.kind !== "exotic";
+  const pm = proto ? PROTO.mult : 1;
   let talentHtml = "";
   if(slot === "Chest" || slot === "Backpack"){
     if(item.fixedTalent && item.talent){
@@ -463,23 +508,27 @@ function renderGearCard(slot){
   const modHtml = ["Mask","Chest","Backpack"].includes(slot) ?
     `<label class="fl">插件槽</label><select data-slot="${slot}" data-k="mod">${D.mods.map(m =>
       `<option value="${esc(m.stat)}"${m.stat === g.mod ? " selected" : ""}>${esc(zh(m.stat))} +${m.max}%</option>`).join("")}</select>` : "";
+  const protoRow = item.kind === "exotic" ? "" :
+    `<div class="proto-row"><label class="ptoggle"><input type="checkbox" data-slot="${slot}" data-k="proto"${g.proto ? " checked" : ""}>原型（词条 ×1.5 + 插件槽）</label></div>` +
+    (proto ? `<label class="fl">原型插件</label><select data-slot="${slot}" data-k="aug">${augOptions(g.aug)}</select>${augInfoHtml(g.aug)}` : "");
   const badge = item.icon ? `<img class="brand-badge" src="icons/brands/${item.icon}.png" alt="" onerror="this.remove()">` : "";
   const mainImg = `<img class="item-ic" src="${item.img || "icons/slots/" + slot.toLowerCase() + ".png"}" alt="${SLOT_ZH[slot]}" onerror="this.onerror=null;this.src='icons/slots/${slot.toLowerCase()}.png'">`;
   return `<div class="gcard">
     <div class="ghead">
-      <div class="item-frame${frameCls(item.kind)}">${mainImg}${badge}</div>
+      <div class="item-frame${frameCls(item.kind)}${proto ? " proto" : ""}">${mainImg}${badge}</div>
       <div class="gmain">
-        <div class="gtitle">${SLOT_ZH[slot]}<span class="qtag ${item.kind === "exotic" ? "q-exotic" : "q-high"}">${D.qualityZh[item.kind === "brand" ? "High End" : item.kind === "set" ? "Gearset" : item.kind === "named" ? "Named" : "Exotic"]}</span></div>
+        <div class="gtitle">${SLOT_ZH[slot]}<span class="qtag ${item.kind === "exotic" ? "q-exotic" : "q-high"}">${D.qualityZh[item.kind === "brand" ? "High End" : item.kind === "set" ? "Gearset" : item.kind === "named" ? "Named" : "Exotic"]}</span>${proto ? '<span class="qtag q-proto">原型</span>' : ""}</div>
         <select data-slot="${slot}" data-k="item">${itemOpts(slot, g.i)}</select>
       </div>
     </div>
     <div class="core-pills">
-      <div class="cpill red${g.core === "red" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="red"><img src="icons/core-red.png" alt="">武器伤害 +15%</div>
-      <div class="cpill blue${g.core === "blue" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="blue"><img src="icons/core-blue.png" alt="">装甲 +170,000</div>
-      <div class="cpill yellow${g.core === "yellow" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="yellow"><img src="icons/core-yellow.png" alt="">技能分阶 +1</div>
+      <div class="cpill red${g.core === "red" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="red"><img src="icons/core-red.png" alt="">武器伤害 +${Math.round(15 * pm * 10) / 10}%</div>
+      <div class="cpill blue${g.core === "blue" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="blue"><img src="icons/core-blue.png" alt="">装甲 +${proto ? "255,000" : "170,000"}</div>
+      <div class="cpill yellow${g.core === "yellow" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="yellow"><img src="icons/core-yellow.png" alt="">技能分阶 +${proto ? PROTO.yellowCore : 1}</div>
     </div>
-    <label class="fl">副词条 1</label><select data-slot="${slot}" data-k="a1">${attrOpts(tier, g.a1)}</select>
-    <label class="fl">副词条 2</label><select data-slot="${slot}" data-k="a2">${attrOpts(tier, g.a2)}</select>
+    ${protoRow}
+    <label class="fl">副词条 1</label><select data-slot="${slot}" data-k="a1">${attrOpts(tier, g.a1, pm)}</select>
+    <label class="fl">副词条 2</label><select data-slot="${slot}" data-k="a2">${attrOpts(tier, g.a2, pm)}</select>
     ${modHtml}${talentHtml}
   </div>`;
 }
@@ -533,9 +582,10 @@ function recalc(){
   for(const slot of SLOTS){
     const gs = S.gear[slot];
     const item = D.slots[slot][gs.i];
-    if(gs.core === "red") awd += 15;
+    const gproto = !!gs.proto && item.kind !== "exotic";
+    if(gs.core === "red") awd += gproto ? 15 * PROTO.mult : 15;
     if(gs.mod){const m = D.mods.find(x => x.stat === gs.mod); if(m) routeStat(m.stat, m.max);}
-    for(const k of ["a1", "a2"]) if(gs[k]) routeStat(gs[k], attrMaxFor(item, gs[k]));
+    for(const k of ["a1", "a2"]) if(gs[k]) routeStat(gs[k], attrMaxFor(item, gs[k]) * (gproto ? PROTO.mult : 1));
     if(slot === "Chest" || slot === "Backpack"){
       let tName = null, fx = null;
       if(item && item.fixedTalent && item.talent){
@@ -553,12 +603,28 @@ function recalc(){
       }
     }
   }
+  /* 原型插件：全局生效。回声（子弹几率双倍伤害）按期望值计入独立乘区，其余仅展示 */
+  const augNotes = [];
+  const protoAugs = [];
+  for(const slot of SLOTS){
+    const gs = S.gear[slot];
+    const item = D.slots[slot][gs.i];
+    if(gs.proto && item && item.kind !== "exotic" && gs.aug) protoAugs.push(gs.aug);
+  }
+  for(let i = 0; i < 3; i++) if(isProtoW(i) && S.waug[i]) protoAugs.push(S.waug[i]);
+  for(const n of protoAugs){
+    const a = augByName(n);
+    if(!a) continue;
+    if(a.en === "Echo"){amps *= 1 + (a.base + a.step * augLvl()); augNotes.push(a.zh + " 期望 +" + augPct(a));}
+    else augNotes.push(a.zh + "（未计入数值）");
+  }
   const results = [];
   for(let i = 0; i < 3; i++){
     const w = weaponByKey(S.weapons[i]);
     if(!w){results.push(null); continue;}
+    const wproto = isProtoW(i);
     const typeStat = TYPE_DMG[w.type];
-    const typeDmg = (add[typeStat] || 0) + (S.spec ? 15 : 0) + (S.expertise || 0) + (S.watch.wd || 0) + w.core1.max;
+    const typeDmg = (add[typeStat] || 0) + (S.spec ? 15 : 0) + (S.expertise || 0) + (S.watch.wd || 0) + w.core1.max * (wproto ? PROTO.mult : 1);
     const genWd = add["Weapon Damage"] || 0;
     // 武器自身的副核心 / 词条 / 天赋按每把枪独立计算，不污染共享数值
     let wChc = 0, wChd = 0, wHsd = 0, wDta = 0, wDth = 0;
@@ -569,7 +635,7 @@ function recalc(){
       else if(stat === "Damage to Armor") wDta += val;
       else if(stat === "Damage to Health") wDth += val;
     }
-    if(w.core2) wRoute(w.core2.stat, w.core2.max);
+    if(w.core2) wRoute(w.core2.stat, w.core2.max * (wproto ? PROTO.mult : 1));
     if(w.attr1) wRoute(w.attr1, weaponAttrMax(w.attr1));
     else if(S.wAttr[i]) wRoute(S.wAttr[i], weaponAttrMax(S.wAttr[i]));
     let fxWd = 0, fxChd = 0, fxMag = 0, fxNote = "";
@@ -594,9 +660,9 @@ function recalc(){
     const reloadT = (w.reload / 1000) / (1 + g.rel / 100);
     const burst = vsArmor * w.rpm / 60;
     const cycle = (magTime + reloadT) > 0 ? burst * magTime / (magTime + reloadT) : burst;
-    results.push({w, additive, typeDmg, genWd, awd, chcT, over, chdT, hsdT, dta: dtaT, expected, vsArmor, burst, cycle, magDmg: vsArmor * magSize, magSize, reloadT, fxNote});
+    results.push({w, wproto, additive, typeDmg, genWd, awd, chcT, over, chdT, hsdT, dta: dtaT, expected, vsArmor, burst, cycle, magDmg: vsArmor * magSize, magSize, reloadT, fxNote});
   }
-  return {results, counts, achieved, talentNotes, amps};
+  return {results, counts, achieved, talentNotes, augNotes, amps};
 }
 
 /* ================= 渲染：结果 / 汇总 ================= */
@@ -612,7 +678,7 @@ function renderResults(R){
     }
     const w = r.w;
     h += `<div class="wres">
-      <div class="wt" style="align-items:center">${typeSvg(w.type, 34)} ${qualityTag(w.quality)} ${wdisp(w)} <span style="color:var(--muted);font-weight:400">${D.typeZh[w.type] || w.type}</span></div>
+      <div class="wt" style="align-items:center">${typeSvg(w.type, 34)} ${qualityTag(w.quality)}${r.wproto && w.quality !== "Prototype" ? '<span class="qtag q-proto">原型</span>' : ""} ${wdisp(w)} <span style="color:var(--muted);font-weight:400">${D.typeZh[w.type] || w.type}</span></div>
       <div class="kpis">
         <div class="kpi gold"><b>${fmt(r.vsArmor)}</b><span>期望单发（对装甲）</span></div>
         <div class="kpi acc"><b>${fmt(r.burst)}</b><span>爆发 DPS（不含换弹）</span></div>
@@ -629,6 +695,9 @@ function renderResults(R){
   });
   if(R.talentNotes.length){
     h += `<div class="detail" style="margin-top:8px">计入的装备天赋：${R.talentNotes.map(esc).join("；")}${R.amps > 1 ? `；独立增伤乘区 ×${R.amps.toFixed(2)}` : ""}</div>`;
+  }
+  if(R.augNotes && R.augNotes.length){
+    h += `<div class="detail" style="margin-top:4px;color:var(--purple)">原型插件：${R.augNotes.map(esc).join("；")}</div>`;
   }
   $("#results").innerHTML = h;
 }
@@ -696,6 +765,11 @@ function loadBuild(i){
     while(S.wtype.length < 3)S.wtype.push(dflt.wtype[S.wtype.length]);
     while(S.wTalent.length < 3)S.wTalent.push(null);
     while(S.wAttr.length < 3)S.wAttr.push("Critical Hit Damage");
+    S.wproto = (S.wproto && S.wproto.length) ? S.wproto : [];
+    while(S.wproto.length < 3)S.wproto.push(false);
+    S.waug = (S.waug && S.waug.length) ? S.waug : [];
+    while(S.waug.length < 3)S.waug.push(null);
+    for(const s of SLOTS) if(S.gear[s] && S.gear[s].proto === undefined){S.gear[s].proto = false; S.gear[s].aug = null;}
   }
   save(); syncInputs(); renderAll();
   toast("已载入「" + e.name + "」");
@@ -745,19 +819,21 @@ async function generateBuildImage(){
     const specName = S.spec ? (D.specZh[S.spec] || S.spec) : "无";
     t(g, "专精：" + specName + " · 手表：类型伤 +" + S.watch.wd + "% / 暴率 +" + S.watch.chc + "% / 暴伤 +" + S.watch.chd + "% · 专精度 +" + S.expertise + "% · 爆头率 " + S.hsRate + "% · 对装甲目标", 36, 88, {size: 14, color: "#8b949d"});
 
-    const drawWeapon = (r, x, y) => {
+    const drawWeapon = (r, x, y, wi) => {
       const w2 = 664, h2 = 196;
       g.fillStyle = "#171d23"; rr(g, x, y, w2, h2, 10); g.fill();
       g.strokeStyle = "#2a333d"; rr(g, x, y, w2, h2, 10); g.stroke();
       if(!r){t(g, "未选择武器", x+24, y+h2/2, {size: 14, color: "#8b949d"}); return;}
       const w = r.w;
+      const wproto = wi != null && isProtoW(wi);
+      const waugName = wproto && S.waug[wi] ? augByName(S.waug[wi]) : null;
       const qc = qualityColor(w.quality);
       g.fillStyle = "#1d242c"; rr(g, x+18, y+16, 148, 148, 10); g.fill();
-      g.strokeStyle = qc; g.lineWidth = 3; rr(g, x+18, y+16, 148, 148, 10); g.stroke(); g.lineWidth = 1;
+      g.strokeStyle = wproto ? "#a06cd5" : qc; g.lineWidth = 3; rr(g, x+18, y+16, 148, 148, 10); g.stroke(); g.lineWidth = 1;
       const im = w.img ? imgs[w.img] : null;
       if(im)g.drawImage(im, x+30, y+28, 124, 124);
       const tx = x+184;
-      t(g, (D.qualityZh[w.quality] || w.quality) + " · " + (D.typeZh[w.type] || w.type), tx, y+28, {size: 12, color: "#8b949d"});
+      t(g, (D.qualityZh[w.quality] || w.quality) + " · " + (D.typeZh[w.type] || w.type) + (wproto && w.quality !== "Prototype" ? " · 原型" : ""), tx, y+28, {size: 12, color: wproto ? "#a06cd5" : "#8b949d"});
       t(g, w.zh || w.name, tx, y+54, {size: 20, bold: true});
       const kv = [["期望单发(甲)", fmt(r.vsArmor)], ["爆发 DPS", fmt(r.burst)], ["循环 DPS", fmt(r.cycle)], ["弹匣伤害", fmt(r.magDmg)]];
       kv.forEach((L, j) => {
@@ -765,21 +841,24 @@ async function generateBuildImage(){
         t(g, L[0], cx, cy, {size: 12, color: "#8b949d"});
         t(g, L[1], cx, cy + 26, {size: 21, bold: true, color: j === 1 ? "#f0862d" : "#d9dee3"});
       });
-      t(g, "基础 " + fmt(w.dmg) + " · " + w.rpm + " rpm · 弹匣 " + w.mag + " · 换弹 " + (w.reload/1000).toFixed(1) + "s", tx, y+h2-12, {size: 12, color: "#8b949d"});
+      t(g, "基础 " + fmt(w.dmg) + " · " + w.rpm + " rpm · 弹匣 " + w.mag + " · 换弹 " + (w.reload/1000).toFixed(1) + "s" + (waugName ? " · 原型插件 " + waugName.zh : ""), tx, y+h2-12, {size: 12, color: waugName ? "#a06cd5" : "#8b949d"});
     };
-    drawWeapon(R.results[0], 36, 112);
-    drawWeapon(R.results[1], 740, 112);
+    drawWeapon(R.results[0], 36, 112, 0);
+    drawWeapon(R.results[1], 740, 112, 1);
 
     const drawGear = (slot, x, y) => {
       const gw = 448, gh = 316;
       const gs = S.gear[slot];
       const it = D.slots[slot][gs.i];
       const qk = it.kind === "brand" ? "High End" : it.kind === "set" ? "Gearset" : it.kind === "named" ? "Named" : "Exotic";
+      const gproto = !!gs.proto && it.kind !== "exotic";
+      const pm = gproto ? PROTO.mult : 1;
+      const gaug = gproto && gs.aug ? augByName(gs.aug) : null;
       const qc = qualityColor(qk);
       g.fillStyle = "#171d23"; rr(g, x, y, gw, gh, 10); g.fill();
       g.strokeStyle = "#2a333d"; rr(g, x, y, gw, gh, 10); g.stroke();
       g.fillStyle = "#1d242c"; rr(g, x+16, y+16, 128, 128, 10); g.fill();
-      g.strokeStyle = qc; g.lineWidth = 3; rr(g, x+16, y+16, 128, 128, 10); g.stroke(); g.lineWidth = 1;
+      g.strokeStyle = gproto ? "#a06cd5" : qc; g.lineWidth = 3; rr(g, x+16, y+16, 128, 128, 10); g.stroke(); g.lineWidth = 1;
       const im = it.img ? imgs[it.img] : (imgs["icons/slots/" + slot.toLowerCase() + ".png"] || null);
       if(im)g.drawImage(im, x+26, y+26, 108, 108);
       const bi = it.icon ? imgs["icons/brands/" + it.icon + ".png"] : null;
@@ -787,11 +866,11 @@ async function generateBuildImage(){
       const nm = it.zh || it.name || it.brand || "";
       t(g, SLOT_ZH[slot], x+158, y+30, {size: 12, color: "#8b949d"});
       t(g, nm.length > 14 ? nm.slice(0, 14) + "…" : nm, x+158, y+56, {size: 17, bold: true});
-      t(g, D.qualityZh[qk], x+158, y+78, {size: 12, color: qc});
+      t(g, D.qualityZh[qk] + (gproto ? " · 原型" : ""), x+158, y+78, {size: 12, color: gproto ? "#a06cd5" : qc});
       const tier = it.kind === "named" ? "N" : "A";
       const amax = st => {if(!st)return null; const h = (D.attrs[tier] || []).find(a => a.stat === st) || D.attrs.A.find(a => a.stat === st); return h ? h.max : 0;};
-      const attrStr = st => {const m = amax(st); return st ? zh(st) + " +" + (PCT_ABS.has(st) ? m : m + "%") : "—";};
-      const coreTxt = gs.core === "red" ? "武器伤害 +15%" : gs.core === "blue" ? "装甲 +170,000" : "技能分阶 +1";
+      const attrStr = st => {const m = st ? Math.round(amax(st) * pm * 10) / 10 : 0; return st ? zh(st) + " +" + (PCT_ABS.has(st) ? m : m + "%") : "—";};
+      const coreTxt = gs.core === "red" ? "武器伤害 +" + Math.round(15 * pm * 10) / 10 + "%" : gs.core === "blue" ? "装甲 +" + (gproto ? "255,000" : "170,000") : "技能分阶 +" + (gproto ? PROTO.yellowCore : 1);
       const coreCol = gs.core === "red" ? "#e0564f" : gs.core === "blue" ? "#4f8fca" : "#d9b13b";
       t(g, "● " + coreTxt, x+16, y+170, {size: 14, bold: true, color: coreCol});
       t(g, attrStr(gs.a1), x+16, y+198, {size: 14});
@@ -803,6 +882,7 @@ async function generateBuildImage(){
         else if(gs.talent)tn = gs.talent;
       }else if(it.kind === "exotic" && it.talent)tn = it.talent;
       if(tn)t(g, "天赋：" + talentName(tn), x+16, y+(gs.mod ? 274 : 250), {size: 14, bold: true, color: "#f0862d"});
+      if(gaug)t(g, "原型插件：" + gaug.zh, x+16, y+298, {size: 13, bold: true, color: "#a06cd5"});
     };
     const gy = 328;
     SLOTS.forEach((sl, i) => drawGear(sl, 36 + (i % 3) * 460, gy + Math.floor(i / 3) * 330));
@@ -923,6 +1003,8 @@ function bind(){
         renderAll();
       }else if(k === "talent"){S.wTalent[i] = el.value || null;}
       else if(k === "wattr"){S.wAttr[i] = el.value;}
+      else if(k === "wproto"){S.wproto[i] = el.checked; if(!el.checked)S.waug[i] = null; save(); renderAll(); return;}
+      else if(k === "waug"){S.waug[i] = el.value || null; save(); renderAll(); return;}
       save(); const R = recalc(); renderResults(R);
       return;
     }
@@ -935,6 +1017,8 @@ function bind(){
       else if(k2 === "a2"){g.a2 = el.value;}
       else if(k2 === "mod"){g.mod = el.value;}
       else if(k2 === "talent"){g.talent = el.value || null;}
+      else if(k2 === "proto"){g.proto = el.checked; if(!el.checked)g.aug = null; save(); renderAll(); return;}
+      else if(k2 === "aug"){g.aug = el.value || null; save(); renderAll(); return;}
       save(); const R = recalc(); renderResults(R); if(k2 !== "core") renderBrandSummary(recalc());
       return;
     }

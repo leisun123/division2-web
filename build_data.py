@@ -551,6 +551,29 @@ data = {
     "specZh": SPEC_ZH,
     "talentZh": talent_zh_out,
 }
+
+# ---------- 原型系统（TU26「Rise Up」）：词条上限 ×1.5、黄核=技能分阶 1.5、9 个共享插件 ----------
+# 数值来自 geardb 的 prototype_curves（PvE：满级 = base + step×10）与 talents_official 官方中文描述
+proto = {"mult": 1.5, "yellowCore": 1.5, "augments": []}
+if tdb:
+    curves = tdb.get("combat_audit", {}).get("prototype_curves") or {}
+    tdesc = {t.get("code"): t for t in tdb.get("talents_official", [])}
+    for a in tdb.get("prototype_augments", []):
+        base = step = None
+        for c in (((curves.get(a.get("code")) or {}).get("pve")) or {}).values():
+            base, step = c.get("base"), c.get("step")
+            break
+        t = tdesc.get(a.get("code")) or {}
+        ent = {
+            "en": a.get("en"), "zh": a.get("zh") or a.get("en"),
+            "desc": (t.get("desc_filled_zh") or t.get("desc_zh") or "").strip(),
+            "base": base, "step": step,
+        }
+        ic = _iconfile(t.get("icon")) if t.get("icon") else None
+        if ic:
+            ent["icon"] = ic
+        proto["augments"].append(ent)
+data["proto"] = proto
 js = "window.D2 = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n"
 open(OUT, "w", encoding="utf-8").write(js)
 print("data.js written:", round(os.path.getsize(OUT) / 1024), "KB")
