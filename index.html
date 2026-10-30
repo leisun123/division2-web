@@ -20,6 +20,8 @@ a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
 .spacer{flex:1}
 .btn{background:var(--panel2);color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer}
 .btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#14181d;font-weight:600}
+.btn-primary:hover{color:#14181d;filter:brightness(1.1)}
 .layout{display:block;max-width:1240px;margin:0 auto;padding:14px 20px}
 .weapon-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 @media (max-width:760px){.weapon-grid{grid-template-columns:1fr}}
@@ -34,16 +36,16 @@ select:focus,input:focus{outline:1px solid var(--accent-dim)}
 label.fl{display:block;font-size:11px;color:var(--muted);margin:8px 0 3px}
 .row{display:flex;gap:8px}.row>div{flex:1;min-width:0}
 .wcard{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px}
-.item-frame{position:relative;flex:none;width:100px;height:100px;background:linear-gradient(180deg,#242c35,#151b21);border:2px solid var(--gold);border-radius:10px;display:flex;align-items:center;justify-content:center}
+.item-frame{position:relative;flex:none;width:120px;height:120px;background:linear-gradient(180deg,#242c35,#151b21);border:2px solid var(--gold);border-radius:12px;display:flex;align-items:center;justify-content:center}
 .item-frame.exotic{border-color:var(--red)}
 .item-frame.set{border-color:var(--teal)}
-.item-frame .item-ic{width:84px;height:84px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.65))}
+.item-frame .item-ic{width:104px;height:104px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.65))}
 .item-frame img.item-ic ~ .wsvg{display:none}
 .item-frame.imgfail img.item-ic{display:none}
 .item-frame.imgfail .wsvg{display:block}
 .tal-ic{width:26px;height:26px;flex:none;border-radius:5px;background:#0c1013;border:1px solid var(--border)}
-.item-frame .wsvg{width:78px;height:32px;color:#e6ebf0}
-.item-frame .brand-badge{position:absolute;right:-8px;bottom:-8px;width:34px;height:34px;background:#10151a;border:1px solid var(--border2);border-radius:8px;padding:3px}
+.item-frame .wsvg{width:94px;height:38px;color:#e6ebf0}
+.item-frame .brand-badge{position:absolute;right:-9px;bottom:-9px;width:40px;height:40px;background:#10151a;border:1px solid var(--border2);border-radius:9px;padding:3px}
 .whead,.ghead{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px}
 .gmain{flex:1;min-width:0}
 .wcard .wname{display:flex;align-items:center;gap:8px;font-weight:600;flex-wrap:wrap}
@@ -93,6 +95,19 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 footer{padding:14px 20px 30px;color:var(--muted);font-size:11px;line-height:1.8;max-width:1560px;margin:0 auto}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#222b33;border:1px solid var(--accent);color:var(--text);padding:8px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9}
 .toast.show{opacity:1}
+.save-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.save-bar input{width:220px}
+.saved-list{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:200px}
+.schip{display:inline-flex;align-items:center;gap:2px;background:var(--panel2);border:1px solid var(--border2);border-radius:14px;font-size:12px;color:var(--text);padding:0 4px 0 10px;height:26px;cursor:pointer}
+.schip:hover{border-color:var(--accent)}
+.schip .sname{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.schip .sdel{background:none;border:none;color:var(--muted);font-size:13px;padding:0 4px;cursor:pointer;line-height:1}
+.schip .sdel:hover{color:var(--red)}
+.modal{position:fixed;inset:0;background:rgba(5,8,11,.82);display:flex;align-items:center;justify-content:center;z-index:20;padding:20px}
+.modal[hidden]{display:none}
+.modal-box{background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:14px;max-width:94vw;max-height:94vh;overflow:auto}
+.modal-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:14px;font-weight:600}
+.modal-box img{max-width:100%;height:auto;border-radius:8px;display:block}
 </style>
 </head>
 <body>
@@ -101,14 +116,23 @@ footer{padding:14px 20px 30px;color:var(--muted);font-size:11px;line-height:1.8;
   <span class="badge" id="dbver"></span>
   <span class="badge">网页版 · 离线可用</span>
   <div class="spacer"></div>
-  <button class="btn" id="btnShare">复制分享链接</button>
-  <button class="btn" id="btnExport">导出 JSON</button>
-  <button class="btn" id="btnImport">导入 JSON</button>
+  <button class="btn btn-primary" id="btnImage">生成配装图</button>
+  <button class="btn" id="btnImport">导入配装</button>
   <button class="btn" id="btnReset">重置</button>
   <input type="file" id="fileImport" accept=".json" style="display:none">
 </header>
 
 <main class="layout">
+  <!-- ============ 0. 我的配装 ============ -->
+  <div class="panel">
+    <h3><img src="icons/brands/providence.png" alt="">我的配装收藏</h3>
+    <div class="save-bar">
+      <input id="saveName" placeholder="输入方案名称…" maxlength="24">
+      <button class="btn btn-primary" id="btnSave">保存当前配装</button>
+      <div class="saved-list" id="savedList"></div>
+    </div>
+  </div>
+
   <!-- ============ 1. 武器 ============ -->
   <div class="panel">
     <h3><img src="icons/slots/mask.png" alt="">武器</h3>
@@ -173,6 +197,15 @@ footer{padding:14px 20px 30px;color:var(--muted);font-size:11px;line-height:1.8;
   游戏数据来源：<a href="https://github.com/mxswat/mx-division-builds" target="_blank">Mx Division Builds Tool</a> 开源数据表（版本 <span id="dbver2"></span>，CC BY-NC-SA 4.0）· 武器/装备渲染图与中文天赋库来自 <a href="https://github.com/Agent537-coder/td2-optimizer" target="_blank">td2-optimizer</a> 游戏数据整理。图标与游戏数据版权归 Ubisoft 所有。<br>
   本页面为学习交流用的粉丝工具，非商业用途；游戏数据以游戏内实际为准。
 </footer>
+<div class="modal" id="imgModal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">配装图预览 <span style="flex:1"></span>
+      <button class="btn btn-primary" id="dlImg">下载 PNG</button>
+      <button class="btn" id="closeModal">关闭</button>
+    </div>
+    <img id="imgPreview" alt="配装图预览">
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script src="data.js"></script>
@@ -608,6 +641,154 @@ function renderAll(){
   const R = recalc();
   renderResults(R); renderBrandSummary(R);
 }
+/* ================= 我的配装收藏 ================= */
+function savedAll(){try{return JSON.parse(localStorage.getItem("d2calc-saved-v1") || "[]");}catch(e){return [];}}
+function saveSavedAll(list){localStorage.setItem("d2calc-saved-v1", JSON.stringify(list));}
+function renderSaved(){
+  const list = savedAll();
+  $("#savedList").innerHTML = list.length ? list.map((e, i) =>
+    '<span class="schip" title="点击载入"><span class="sname" data-load="' + i + '">' + esc(e.name) + '</span><button class="sdel" data-del="' + i + '" title="删除">×</button></span>'
+  ).join("") : '<span style="font-size:12px;color:var(--muted)">还没有收藏，配好后点「保存当前配装」</span>';
+}
+function saveCurrent(){
+  const name = ($("#saveName").value.trim()) || ("配装 " + new Date().toLocaleString("zh-CN", {month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false}));
+  const list = savedAll();
+  const exist = list.findIndex(e => e.name === name);
+  const entry = {name, ts: Date.now(), s: JSON.parse(JSON.stringify(S))};
+  if(exist >= 0)list[exist] = entry; else list.unshift(entry);
+  if(list.length > 50)list.length = 50;
+  saveSavedAll(list); renderSaved();
+  toast("已保存「" + name + "」");
+}
+function loadBuild(i){
+  const e = savedAll()[i];
+  if(!e)return;
+  S = JSON.parse(JSON.stringify(e.s));
+  if(!S.gear || !S.weapons){toast("该收藏数据不完整");return;}
+  S.wtype = (S.wtype && S.wtype.length === 2) ? S.wtype : [
+    (weaponByKey(S.weapons[0]) || D.weapons[0]).type,
+    (weaponByKey(S.weapons[1]) || D.weapons[0]).type
+  ];
+  save(); syncInputs(); renderAll();
+  toast("已载入「" + e.name + "」");
+}
+
+/* ================= 生成配装图 ================= */
+let lastCanvas = null;
+function loadImg(src){
+  return new Promise(res => {const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src;});
+}
+function rr(g, x, y, w, h, r){
+  g.beginPath(); g.moveTo(x+r, y); g.arcTo(x+w, y, x+w, y+h, r); g.arcTo(x+w, y+h, x, y+h, r); g.arcTo(x, y+h, x, y, r); g.arcTo(x, y, x+w, y, r); g.closePath();
+}
+const FONT = '"PingFang SC","Microsoft YaHei",-apple-system,sans-serif';
+function t(g, str, x, y, o){
+  o = o || {};
+  g.fillStyle = o.color || "#d9dee3";
+  g.font = (o.bold ? "600 " : "400 ") + (o.size || 13) + "px " + FONT;
+  g.textAlign = o.align || "left";
+  g.fillText(str, x, y);
+  g.textAlign = "left";
+}
+function qualityColor(q){return q === "Exotic" ? "#e0564f" : q === "Gearset" ? "#45a29e" : "#d4a940";}
+async function generateBuildImage(){
+  const btn = $("#btnImage");
+  btn.disabled = true; const oldTxt = btn.textContent; btn.textContent = "生成中…";
+  try{
+    const R = recalc();
+    const srcs = new Set();
+    R.results.forEach(r => {if(r && r.w.img)srcs.add(r.w.img);});
+    SLOTS.forEach(sl => {
+      const it = D.slots[sl][S.gear[sl].i];
+      if(it.img)srcs.add(it.img);
+      if(it.icon)srcs.add("icons/brands/" + it.icon + ".png");
+    });
+    const imgs = {};
+    await Promise.all([...srcs].map(async s => {imgs[s] = await loadImg(s);}));
+
+    const W = 1440, H = 1030;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    g.fillStyle = "#0f1317"; g.fillRect(0, 0, W, H);
+    g.strokeStyle = "#2a333d"; g.lineWidth = 2; rr(g, 8, 8, W-16, H-16, 14); g.stroke(); g.lineWidth = 1;
+
+    t(g, "全境封锁2 配装", 36, 58, {size: 30, color: "#f0862d", bold: true});
+    t(g, new Date().toLocaleString("zh-CN", {hour12: false}), W-40, 54, {size: 14, color: "#8b949d", align: "right"});
+    const specName = S.spec ? (D.specZh[S.spec] || S.spec) : "无";
+    t(g, "专精：" + specName + " · 手表：类型伤 +" + S.watch.wd + "% / 暴率 +" + S.watch.chc + "% / 暴伤 +" + S.watch.chd + "% · 专精度 +" + S.expertise + "% · 爆头率 " + S.hsRate + "% · 对装甲目标", 36, 88, {size: 14, color: "#8b949d"});
+
+    const drawWeapon = (r, x, y) => {
+      const w2 = 664, h2 = 196;
+      g.fillStyle = "#171d23"; rr(g, x, y, w2, h2, 10); g.fill();
+      g.strokeStyle = "#2a333d"; rr(g, x, y, w2, h2, 10); g.stroke();
+      if(!r){t(g, "未选择武器", x+24, y+h2/2, {size: 14, color: "#8b949d"}); return;}
+      const w = r.w;
+      const qc = qualityColor(w.quality);
+      g.fillStyle = "#1d242c"; rr(g, x+18, y+16, 148, 148, 10); g.fill();
+      g.strokeStyle = qc; g.lineWidth = 3; rr(g, x+18, y+16, 148, 148, 10); g.stroke(); g.lineWidth = 1;
+      const im = w.img ? imgs[w.img] : null;
+      if(im)g.drawImage(im, x+30, y+28, 124, 124);
+      const tx = x+184;
+      t(g, (D.qualityZh[w.quality] || w.quality) + " · " + (D.typeZh[w.type] || w.type), tx, y+28, {size: 12, color: "#8b949d"});
+      t(g, w.zh || w.name, tx, y+54, {size: 20, bold: true});
+      const kv = [["期望单发(甲)", fmt(r.vsArmor)], ["爆发 DPS", fmt(r.burst)], ["循环 DPS", fmt(r.cycle)], ["弹匣伤害", fmt(r.magDmg)]];
+      kv.forEach((L, j) => {
+        const cx = tx + (j % 2) * 242, cy = y + 76 + Math.floor(j / 2) * 62;
+        t(g, L[0], cx, cy, {size: 12, color: "#8b949d"});
+        t(g, L[1], cx, cy + 26, {size: 21, bold: true, color: j === 1 ? "#f0862d" : "#d9dee3"});
+      });
+      t(g, "基础 " + fmt(w.dmg) + " · " + w.rpm + " rpm · 弹匣 " + w.mag + " · 换弹 " + (w.reload/1000).toFixed(1) + "s", tx, y+h2-12, {size: 12, color: "#8b949d"});
+    };
+    drawWeapon(R.results[0], 36, 112);
+    drawWeapon(R.results[1], 740, 112);
+
+    const drawGear = (slot, x, y) => {
+      const gw = 448, gh = 316;
+      const gs = S.gear[slot];
+      const it = D.slots[slot][gs.i];
+      const qk = it.kind === "brand" ? "High End" : it.kind === "set" ? "Gearset" : it.kind === "named" ? "Named" : "Exotic";
+      const qc = qualityColor(qk);
+      g.fillStyle = "#171d23"; rr(g, x, y, gw, gh, 10); g.fill();
+      g.strokeStyle = "#2a333d"; rr(g, x, y, gw, gh, 10); g.stroke();
+      g.fillStyle = "#1d242c"; rr(g, x+16, y+16, 128, 128, 10); g.fill();
+      g.strokeStyle = qc; g.lineWidth = 3; rr(g, x+16, y+16, 128, 128, 10); g.stroke(); g.lineWidth = 1;
+      const im = it.img ? imgs[it.img] : (imgs["icons/slots/" + slot.toLowerCase() + ".png"] || null);
+      if(im)g.drawImage(im, x+26, y+26, 108, 108);
+      const bi = it.icon ? imgs["icons/brands/" + it.icon + ".png"] : null;
+      if(bi){g.fillStyle = "#10151a"; rr(g, x+112, y+112, 38, 38, 8); g.fill(); g.drawImage(bi, x+116, y+116, 30, 30);}
+      const nm = it.zh || it.name || it.brand || "";
+      t(g, SLOT_ZH[slot], x+158, y+30, {size: 12, color: "#8b949d"});
+      t(g, nm.length > 14 ? nm.slice(0, 14) + "…" : nm, x+158, y+56, {size: 17, bold: true});
+      t(g, D.qualityZh[qk], x+158, y+78, {size: 12, color: qc});
+      const tier = it.kind === "named" ? "N" : "A";
+      const amax = st => {if(!st)return null; const h = (D.attrs[tier] || []).find(a => a.stat === st) || D.attrs.A.find(a => a.stat === st); return h ? h.max : 0;};
+      const attrStr = st => {const m = amax(st); return st ? zh(st) + " +" + (PCT_ABS.has(st) ? m : m + "%") : "—";};
+      const coreTxt = gs.core === "red" ? "武器伤害 +15%" : gs.core === "blue" ? "装甲 +170,000" : "技能分阶 +1";
+      const coreCol = gs.core === "red" ? "#e0564f" : gs.core === "blue" ? "#4f8fca" : "#d9b13b";
+      t(g, "● " + coreTxt, x+16, y+170, {size: 14, bold: true, color: coreCol});
+      t(g, attrStr(gs.a1), x+16, y+198, {size: 14});
+      t(g, attrStr(gs.a2), x+16, y+222, {size: 14});
+      if(gs.mod){const m = D.mods.find(mm => mm.stat === gs.mod); if(m)t(g, "插件：" + zh(m.stat) + " +" + m.max + "%", x+16, y+246, {size: 13, color: "#8b949d"});}
+      let tn = null;
+      if(slot === "Chest" || slot === "Backpack"){
+        if(it.fixedTalent && it.talent)tn = it.talent;
+        else if(gs.talent)tn = gs.talent;
+      }else if(it.kind === "exotic" && it.talent)tn = it.talent;
+      if(tn)t(g, "天赋：" + talentName(tn), x+16, y+(gs.mod ? 274 : 250), {size: 14, bold: true, color: "#f0862d"});
+    };
+    const gy = 328;
+    SLOTS.forEach((sl, i) => drawGear(sl, 36 + (i % 3) * 460, gy + Math.floor(i / 3) * 330));
+
+    t(g, "数据：mx-division-builds (CC BY-NC-SA) · 图标来源 td2-optimizer · 版权归 Ubisoft · 仅供学习交流", 36, H-26, {size: 12, color: "#8b949d"});
+
+    lastCanvas = c;
+    $("#imgPreview").src = c.toDataURL("image/png");
+    $("#imgModal").hidden = false;
+  }finally{
+    btn.disabled = false; btn.textContent = oldTxt;
+  }
+}
+
 function bind(){
   document.body.addEventListener("change", e => {
     const el = e.target;
@@ -671,20 +852,28 @@ function bind(){
   hs.addEventListener("input", e => {S.hsRate = +e.target.value; $("#hsRateV").textContent = S.hsRate; save(); renderResults(recalc());});
   $("#assumeTalents").checked = S.assume;
   $("#assumeTalents").addEventListener("change", e => {S.assume = e.target.checked; save(); renderAll();});
-  // 分享 / 导入导出
-  $("#btnShare").addEventListener("click", () => {
-    const payload = btoa(unescape(encodeURIComponent(JSON.stringify(S)))).replace(/\+/g, "-").replace(/\//g, "_");
-    const url = location.origin + location.pathname + "#" + payload;
-    (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(
-      () => toast("分享链接已复制，粘贴给朋友即可还原配装"),
-      () => {location.hash = payload; toast("链接已生成在地址栏，复制即可分享");}
-    );
+  /* 我的配装收藏 */
+  $("#btnSave").addEventListener("click", saveCurrent);
+  $("#savedList").addEventListener("click", e => {
+    const load = e.target.getAttribute("data-load");
+    const del = e.target.getAttribute("data-del");
+    if(load !== null){loadBuild(+load);}
+    else if(del !== null){
+      const list = savedAll();
+      const nm = list[+del] ? list[+del].name : "";
+      list.splice(+del, 1); saveSavedAll(list); renderSaved();
+      toast("已删除「" + nm + "」");
+    }
   });
-  $("#btnExport").addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(S, null, 2)], {type: "application/json"});
+  /* 配装图 */
+  $("#btnImage").addEventListener("click", generateBuildImage);
+  $("#closeModal").addEventListener("click", () => $("#imgModal").hidden = true);
+  $("#imgModal").addEventListener("click", e => {if(e.target === e.currentTarget) $("#imgModal").hidden = true;});
+  $("#dlImg").addEventListener("click", () => {
+    if(!lastCanvas)return;
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = "division2-build.json"; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    a.href = lastCanvas.toDataURL("image/png");
+    a.download = "division2-配装图.png"; a.click();
   });
   $("#btnImport").addEventListener("click", () => $("#fileImport").click());
   $("#fileImport").addEventListener("change", e => {
@@ -721,6 +910,7 @@ $("#dbver").textContent = "数据 v" + D.version;
 $("#dbver2").textContent = D.version;
 syncInputs();
 renderAll();
+renderSaved();
 bind();
 </script>
 </body>
