@@ -205,6 +205,7 @@ footer{padding:14px 20px 30px;color:var(--muted);font-size:11px;line-height:1.8;
       · 公式：期望伤害 = 基础伤害 × (1 + 全武器伤 + 武器类型伤 + 专精/手表/专精度) × (1 + 暴率×暴伤 + 爆头率×爆头伤) × 独立增伤，对装甲再乘 (1 + 对装甲伤)。<br>
       · 满级 40 满值：红核 = 武器伤害 +15%，蓝核 = 装甲 +170,000，黄核 = 技能分阶 +1；暴击率上限 60%，每把枪自带 25% 暴伤与面板爆头伤。<br>
       · 具名 / 奇特 / 套装 4 件套天赋为固定天赋，品牌件可在下拉中选择通用天赋。<br>
+      · 奇特限制（同游戏规则）：奇特武器 3 个武器位合计只能带 1 把、奇特装备 6 个部位合计只能穿 1 件，超出时自动把先前的奇特换下。<br>
       · 原型（TU26）：金装/具名/套装/非奇特武器可在改造台升为原型——词条上限 ×1.5（红核 +22.5%、蓝核 255,000、黄核 = 技能分阶 +1.5）并获得 1 个插件槽（9 选 1，等级随专精 0-10）。回声插件按触发几率的期望增伤计入，其余插件仅展示。<br>
       · 换弹、弹匣容量参与循环 DPS 与弹匣伤害；射速加成暂未计入。<br>
       · 配置自动保存在本机，可用「复制分享链接」把整套配装编码进网址发给朋友。
@@ -922,6 +923,7 @@ function cdMount(root){
     box.innerHTML = '<button type="button" class="cd-btn"><span style="color:' + (cur && cur.style.color || "inherit") + '">' + esc(cur ? cur.textContent : "") + '</span></button>' +
       '<div class="cd-panel" hidden><input class="cd-filter" placeholder="搜索…"><div class="cd-list">' + body + '</div></div>';
     sel.before(box);
+    box._cdSel = sel; // 挂引用：同容器多个 select 时querySelector会错拿第一个
     sel.addEventListener("change", () => cdLabel(sel));
   });
 }
@@ -965,7 +967,7 @@ function bind(){
     const item = e.target.closest(".cd-item");
     if(item){
       const box = item.closest(".cd");
-      const sel = box.parentElement.querySelector("select.cd-src");
+      const sel = box._cdSel || box.parentElement.querySelector("select.cd-src");
       box.querySelector(".cd-panel").hidden = true;
       if(sel && sel.value !== item.getAttribute("data-v")){
         sel.value = item.getAttribute("data-v");
@@ -999,6 +1001,21 @@ function bind(){
         const nw = weaponByKey(S.weapons[i]);
         S.wtype = S.wtype || [];
         if(nw) S.wtype[i] = nw.type;
+        // 奇特武器全身只能带一把：把其它槽位的奇特换回普通枪
+        if(nw && nw.quality === "Exotic"){
+          for(let j = 0; j < 3; j++){
+            if(j === i)continue;
+            const ow = weaponByKey(S.weapons[j]);
+            if(ow && ow.quality === "Exotic"){
+              const rep = (weaponListOf(S.wtype[j] || ow.type) || []).find(x => x.quality !== "Exotic");
+              if(rep){
+                S.weapons[j] = weaponKey(rep);
+                S.wTalent[j] = null;
+                toast("奇特武器只能带一把，已把「" + (ow.zh || ow.name) + "」换下");
+              }
+            }
+          }
+        }
         S.wTalent[i] = null; S.wAttr[i] = "Critical Hit Damage";
         renderAll();
       }else if(k === "talent"){S.wTalent[i] = el.value || null;}
@@ -1011,7 +1028,25 @@ function bind(){
     const slot = el.getAttribute("data-slot"), k2 = el.getAttribute("data-k");
     if(slot && k2){
       const g = S.gear[slot];
-      if(k2 === "item"){g.i = +el.value; g.talent = null; renderAll();}
+      if(k2 === "item"){
+        g.i = +el.value; g.talent = null;
+        // 奇特装备全身只能穿一件：把其它槽位的奇特换成品牌件
+        const it = D.slots[slot][g.i];
+        if(it && it.kind === "exotic"){
+          for(const s2 of SLOTS){
+            if(s2 === slot)continue;
+            const o = D.slots[s2][S.gear[s2].i];
+            if(o && o.kind === "exotic"){
+              const bi = D.slots[s2].findIndex(x => x.kind === "brand");
+              if(bi >= 0){
+                S.gear[s2].i = bi;
+                toast("奇特装备只能穿一件，已把「" + (o.zh || o.name) + "」换下");
+              }
+            }
+          }
+        }
+        renderAll();
+      }
       else if(k2 === "core"){g.core = el.getAttribute("data-v"); renderGearPills(slot);}
       else if(k2 === "a1"){g.a1 = el.value;}
       else if(k2 === "a2"){g.a2 = el.value;}
