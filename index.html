@@ -548,8 +548,11 @@ function aggregate(){
     const keys = set ? SET_KEYS : BRAND_KEYS; // 品牌与套装的达标件数都是 idx+1
     achieved[name] = {count, set, eff: []};
     for(const k of keys){
-      if(count >= k + 1 && D.bonuses[name] && D.bonuses[name][k]){
-        const e = D.bonuses[name][k];
+      if(count < k + 1) continue;
+      const e0 = D.bonuses[name] && D.bonuses[name][k];
+      if(!e0) continue;
+      // 某些件数档有多条加成（如日蚀协定 3 件套 = 技能加速 + 危害防护），存为数组
+      for(const e of (Array.isArray(e0) ? e0 : [e0])){
         if(e.stat === "Talent") continue;
         add[e.stat] = (add[e.stat] || 0) + e.val;
         achieved[name].eff.push(zh(e.stat) + " +" + (PCT_ABS.has(e.stat) ? e.val : e.val + "%"));

@@ -479,6 +479,82 @@ if tdb:
                 pass
     # geardb 装备天赋也补进 zh 映射源（talent dict 自带 zh/icon 的场景）
 
+    # ---------- 补全：geardb 官方套装（Mx CSV 缺的新套装：日蚀协定、猎人怒火、芳心终结者等） ----------
+    # 件数加成来自 gearsets_official.tiers（2/3 件套 effects；4 件套为天赋）；部件图片用 geardb gear 的 gear_icon
+    GEAR_SET_STAT = {
+        "Status Effects": "Status Effects", "Hazard Protection": "Hazard Protection",
+        "Total Armor": "Total Armor %", "Armor on Kill": "Armor on Kill",
+        "Armor Regen": "Armor Regeneration", "Explosive Resistance": "Explosive Resistance",
+        "Burn Damage": "Burn Damage", "Increased Burn Duration": "Increased Burn Duration",
+        "Health": "Health", "Health on Kill": "Health on Kill",
+        "Cooldown Reduction": "Skill Haste", "Magazine Size": "Magazine Size %",
+        "Critical Hit Chance": "Critical Hit Chance", "Weapon Damage": "Weapon Damage",
+        "Headshot Damage": "Headshot Damage", "Weapon Handling": "Weapon Handling",
+        "Reload Speed": "Reload Speed %", "Skill Damage": "Skill Damage",
+        "Skill Duration": "Skill Duration", "Skill Efficiency": "Skill Efficiency",
+        "Repair-skills": "Repair Skills", "Skill Health": "Skill Health",
+        "Shield Health": "Shield Health",
+        "Assault Rifle Damage": "Assault Rifle Damage", "LMG Damage": "LMG Damage",
+        "Marksman Rifle Damage": "Marksman Rifle Damage", "Rifle Damage": "Rifle Damage",
+        "SMG Damage": "SMG Damage", "Shotgun Damage": "Shotgun Damage",
+    }
+    zh_map.update({
+        "Burn Damage": "燃烧伤害", "Total Armor %": "总装甲值", "Health on Kill": "击杀回血",
+        "Skill Efficiency": "技能效率", "Shield Health": "护盾生命值",
+        "Increased Burn Duration": "燃烧持续时间提升",
+    })
+    set_piece_by_key = {}
+    for gp in tdb["gear"]:
+        if gp.get("kind") == "gearset" and gp.get("set_en"):
+            set_piece_by_key.setdefault((canon(gp["set_en"]), gp.get("slot")), gp)
+    def set_canon(s):
+        c = canon(s)
+        return CANON_ALIAS.get(c, c)
+    added_sets = []
+    for gs in tdb.get("gearsets_official", []):
+        en = (gs.get("en") or "").strip()
+        if not en or en == "-" or gs.get("is_brand"):
+            continue
+        if any(set_canon(en) == set_canon(x) for x in set_names):
+            continue  # Mx 已有（含 Aces and Eights / Foundry Bullwark 拼写差异）
+        zh_name = gs.get("zh") or en
+        set_names.add(en)
+        brand_names.discard(en)
+        brandZh[en] = {"z": zh_name, "a": zh_name}
+        for t in gs.get("tiers", []):
+            if not isinstance(t, dict) or "pieces" not in t:
+                continue
+            p = t["pieces"]
+            if p == 4:
+                bonuses.setdefault(en, {})[3] = {"stat": "Talent", "val": 0}
+            elif p in (2, 3):
+                es = []
+                for e in (t.get("effects") or []):
+                    stat = GEAR_SET_STAT.get(e.get("attr_en") or e.get("code"), e.get("attr_en") or e.get("code"))
+                    es.append({"stat": stat, "val": float(e.get("value") or 0)})
+                if es:
+                    bonuses.setdefault(en, {})[p - 1] = es if len(es) > 1 else es[0]
+        tal4 = None
+        for t in gs.get("tiers", []):
+            if isinstance(t, dict) and t.get("pieces") == 4 and t.get("talents"):
+                tal4 = t["talents"][0]
+                break
+        tal_en = (tal4 or {}).get("en")
+        label_map = {"Back": "Backpack"}
+        for it_ in gs.get("items", []):
+            slot = label_map.get(it_.get("label"), it_.get("label"))
+            if slot not in slots:
+                continue
+            piece = set_piece_by_key.get((set_canon(en), slot.lower()))
+            img = _iconfile(piece.get("gear_icon")) if piece and piece.get("gear_icon") else None
+            slots[slot].append({
+                "name": en, "zh": zh_name, "kind": "set", "brand": en,
+                "icon": None,
+                "talent": tal_en if slot in ("Chest", "Backpack") else None,
+                "fixedTalent": True, "img": img,
+            })
+        added_sets.append(en)
+
     # 天赋中文名/中文描述/图标（按英文名匹配）
     talent_zh = {}
     for x in tdb["talents_official"]:
@@ -591,4 +667,4 @@ if tdb:
     if unmatched_g:
         print("未匹配装备:", unmatched_g[:20])
     print("天赋中文映射:", len(talent_zh_out))
-    print("geardb 补全: 武器 +%d (%s...) | 装备 +%d" % (len(added_w), ",".join(added_w[:5]), len(added_g)))
+    print("geardb 补全: 武器 +%d (%s...) | 装备 +%d | 套装 +%d (%s)" % (len(added_w), ",".join(added_w[:5]), len(added_g), len(added_sets), ",".join(added_sets[:6])))
