@@ -1,0 +1,22 @@
+name: Deploy to Zeabur
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zeabur CLI
+        run: npm i -g zeabur@latest
+
+      - name: Login
+        run: zeabur auth login --token "${{ secrets.ZEABUR_TOKEN }}"
+
+      - name: Deploy
+        run: zeabur deploy --project-id 6ae4349c6313f9568aa3fd95 --service-id 6ae434b15d9e8bb57096f8f5 -i=false
