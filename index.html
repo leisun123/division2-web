@@ -236,7 +236,7 @@ function defaultState(){
   };
   for(const s of SLOTS) gear[s] = preset[s];
   return {
-    weapons:[wkey("AK-M"), wkey("Model 700")], wtype:["Assault Rifle","Marksman Rifle"], wTalent:[null,null], wAttr:["Critical Hit Damage","Critical Hit Damage"],
+    weapons:[wkey("AK-M"), wkey("Model 700"), wkey("D50")], wtype:["Assault Rifle","Marksman Rifle","Pistol"], wTalent:[null,null,null], wAttr:["Critical Hit Damage","Critical Hit Damage","Critical Hit Damage"],
     assume:true, spec:null, watch:{wd:15,chc:3,chd:10,hsd:10}, expertise:10, hsRate:0, gear
   };
   function idx(brand, slot){return D.slots[slot].findIndex(it => it.brand === brand && it.kind === "brand");}
@@ -251,10 +251,14 @@ try{
 if(!S){ try{ S = JSON.parse(localStorage.getItem("d2calc-state") || "null"); }catch(e){} }
 if(!S || !S.gear || !D.slots[SLOTS[0]]) S = defaultState();
 // 旧存档迁移：补两级菜单所需的武器类型
-S.wtype = (S.wtype && S.wtype.length === 2) ? S.wtype : [
-  (weaponByKey(S.weapons[0]) || D.weapons[0]).type,
-  (weaponByKey(S.weapons[1]) || D.weapons[0]).type
-];
+{
+  const dflt = defaultState();
+  while(S.weapons.length < 3)S.weapons.push(dflt.weapons[S.weapons.length]);
+  S.wtype = (S.wtype && S.wtype.length) ? S.wtype : [];
+  while(S.wtype.length < 3)S.wtype.push(dflt.wtype[S.wtype.length]);
+  while(S.wTalent.length < 3)S.wTalent.push(null);
+  while(S.wAttr.length < 3)S.wAttr.push("Critical Hit Damage");
+}
 
 /* ================= 渲染：武器卡 ================= */
 function qualityTag(q){
@@ -298,9 +302,11 @@ function wdisp(w){
   const zh = w.zh || w.name;
   return zh === w.name ? esc(zh) : esc(zh) + ' <span style="color:var(--muted);font-weight:400">' + esc(w.name) + '</span>';
 }
+const WLABELS = ["主武器", "副武器", "手枪"];
+const QC_COLOR = {"High End":"#d4a940","Named":"#e8edf2","Exotic":"#e0564f","Prototype":"#e0564f"};
 function renderWeaponCard(i){
   const w = weaponByKey(S.weapons[i]) || D.weapons[0];
-  const curType = (S.wtype && S.wtype[i]) || w.type;
+  const curType = i === 2 ? "Pistol" : ((S.wtype && S.wtype[i]) || w.type);
   const fixedTalent = w.talent;
   const pool = D.weaponTalents.filter(t => t.types.includes(w.type) && t.q === "A");
   let talentHtml;
@@ -328,14 +334,14 @@ function renderWeaponCard(i){
     <div class="whead">
       <div class="item-frame${frameCls(w.quality)}">${w.img ? `<img class="item-ic" src="${w.img}" alt="${esc(w.name)}" onerror="this.closest('.item-frame').classList.add('imgfail')">` : ""}${typeSvg(w.type, 58)}</div>
       <div class="gmain">
-        <div class="wname">${qualityTag(w.quality)} ${wdisp(w)} <span style="color:var(--muted);font-weight:400;font-size:11px">${D.typeZh[w.type] || w.type}</span></div>
-        <label class="fl">武器类型</label>
-        <select data-w="${i}" data-k="wtype">${weaponTypeOptions(curType)}</select>
+        <div class="text-small text-muted" style="margin-bottom:2px">${WLABELS[i] || ""}</div>
+        <div class="wname"><span style="color:${QC_COLOR[w.quality] || "var(--text)"}">${wdisp(w)}</span> <span style="color:var(--muted);font-weight:400;font-size:11px">${D.typeZh[w.type] || w.type}</span></div>
+        ${i === 2 ? "" : '<label class="fl">武器类型</label><select data-w="' + i + '" data-k="wtype">' + weaponTypeOptions(curType) + '</select>'}
         <label class="fl">选择武器</label>
         <select data-w="${i}" data-k="weapon">${weaponListOf(curType).map(wq => {
           const k = weaponKey(wq);
           const nm = wq.zh && wq.zh !== wq.name ? wq.zh + " " + wq.name : wq.name;
-          return `<option value="${esc(k)}"${k === S.weapons[i] ? " selected" : ""}>[${D.qualityZh[wq.quality] || wq.quality}] ${esc(nm)}</option>`;
+          return `<option value="${esc(k)}"${k === S.weapons[i] ? " selected" : ""} style="color:${QC_COLOR[wq.quality] || "inherit"}">${esc(nm)}</option>`;
         }).join("")}</select>
       </div>
     </div>
@@ -531,7 +537,7 @@ function recalc(){
     }
   }
   const results = [];
-  for(let i = 0; i < 2; i++){
+  for(let i = 0; i < 3; i++){
     const w = weaponByKey(S.weapons[i]);
     if(!w){results.push(null); continue;}
     const typeStat = TYPE_DMG[w.type];
@@ -579,7 +585,7 @@ function recalc(){
 /* ================= 渲染：结果 / 汇总 ================= */
 function renderResults(R){
   let h = "";
-  const labels = ["主武器", "副武器"];
+  const labels = ["主武器", "副武器", "手枪"];
   let maxBurst = 0;
   R.results.forEach(r => {if(r) maxBurst = Math.max(maxBurst, r.burst);});
   R.results.forEach((r, i) => {
@@ -636,7 +642,7 @@ function toast(msg){
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1800);
 }
 function renderAll(){
-  $("#weaponCards").innerHTML = renderWeaponCard(0) + renderWeaponCard(1);
+  $("#weaponCards").innerHTML = renderWeaponCard(0) + renderWeaponCard(1) + renderWeaponCard(2);
   $("#gearGrid").innerHTML = SLOTS.map(renderGearCard).join("");
   const R = recalc();
   renderResults(R); renderBrandSummary(R);
@@ -665,10 +671,14 @@ function loadBuild(i){
   if(!e)return;
   S = JSON.parse(JSON.stringify(e.s));
   if(!S.gear || !S.weapons){toast("该收藏数据不完整");return;}
-  S.wtype = (S.wtype && S.wtype.length === 2) ? S.wtype : [
-    (weaponByKey(S.weapons[0]) || D.weapons[0]).type,
-    (weaponByKey(S.weapons[1]) || D.weapons[0]).type
-  ];
+  {
+    const dflt = defaultState();
+    while(S.weapons.length < 3)S.weapons.push(dflt.weapons[S.weapons.length]);
+    S.wtype = (S.wtype && S.wtype.length) ? S.wtype : [];
+    while(S.wtype.length < 3)S.wtype.push(dflt.wtype[S.wtype.length]);
+    while(S.wTalent.length < 3)S.wTalent.push(null);
+    while(S.wAttr.length < 3)S.wAttr.push("Critical Hit Damage");
+  }
   save(); syncInputs(); renderAll();
   toast("已载入「" + e.name + "」");
 }
