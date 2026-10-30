@@ -404,19 +404,28 @@ if tdb:
                        "Marksman Rifle": "Marksman Rifle", "Pistol": "Pistol"}
     existing_w = {(canon(w["name"]), w["type"]) for w in weapons}
     added_w = []
+    # geardb 品质字段标 Grey 但实际是具名活动的枪（如丰收之人，本体特性+20%WD/-18%RPM 已含在 dmg/rpm）
+    FORCE_NAMED = {"The Harvest"}
+    # geardb 缺 rpm/mag 的家族（M44 全系无射速数据）→ 从本目录同型号基础枪借数值
+    FAM_FILL = {"mosin_nagant": "Classic M44 Carbine"}
     for x in tdb["weapons"]:
         t_en = x.get("type_en")
         if t_en not in TYPE_FROM_GEARD:
             continue  # 跳过专精武器
-        q = x.get("quality")
-        if not (q in ("Exotic", "Prototype") or (q == "Orange" and x.get("named"))):
-            continue  # 只补奇特/原型/具名，灰色基础型号不收
         en = (x.get("en") or x.get("name") or "").strip()
+        q = x.get("quality")
+        if not (q in ("Exotic", "Prototype") or (q == "Orange" and x.get("named")) or (x.get("named") and en in FORCE_NAMED)):
+            continue  # 只补奇特/原型/具名，灰色基础型号不收
         our_type = TYPE_FROM_GEARD[t_en]
         ck = (canon(en), our_type)
         if not en or ck in existing_w:
             continue
         existing_w.add(ck)
+        if x.get("family") in FAM_FILL and (not x.get("rpm") or not x.get("mag")):
+            b = next((w for w in weapons if w["name"] == FAM_FILL[x["family"]]), None)
+            if b:
+                x = dict(x, rpm=b["rpm"], mag=b["mag"], reload_ms=b["reload"],
+                         head_mult=(b.get("hsd") or 0) / 100 + 1)
         if not x.get("dmg") or not x.get("rpm") or not x.get("mag"):
             continue
         k = type_ratio.get(t_en) or global_ratio
@@ -511,6 +520,13 @@ for t in weapon_talents + [x for s in gear_talents.values() for x in s]:
 # 具名/异域固定天赋也补查一遍
 fixed_names = {it["talent"] for slot in slots for it in slots[slot] if it.get("talent")}
 for n in fixed_names:
+    if n and n.lower() not in talent_zh_out:
+        r = base_lookup(n) if tdb else None
+        if r:
+            talent_zh_out[n.lower()] = r
+# 武器的固定天赋同样补查（如雪橇弑手的 Hidden Rock 不在 Mx 天赋清单里）
+w_fixed = {w.get("talent") for w in weapons if w.get("talent")}
+for n in w_fixed:
     if n and n.lower() not in talent_zh_out:
         r = base_lookup(n) if tdb else None
         if r:
