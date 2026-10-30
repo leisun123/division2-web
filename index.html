@@ -45,18 +45,19 @@ label.fl{display:block;font-size:11px;color:var(--muted);margin:8px 0 3px}
 .item-frame.imgfail img.item-ic{display:none}
 .item-frame.imgfail .wsvg{display:block}
 .tal-ic{width:26px;height:26px;flex:none;border-radius:5px;background:#0c1013;border:1px solid var(--border)}
-.wsel{position:relative}
-.wsel-btn{width:100%;text-align:left;background:#10151a;color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-size:13px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wsel-btn:hover{border-color:var(--accent-dim)}
-.wsel-panel{position:absolute;z-index:30;top:calc(100% + 4px);left:0;right:0;background:#10151a;border:1px solid var(--border2);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.55);max-height:300px;display:flex;flex-direction:column}
-.wsel-panel[hidden]{display:none}
-.wsel-filter{margin:8px;width:calc(100% - 16px)}
-.wsel-list{overflow:auto;padding:0 0 6px}
-.wsel-grp[hidden]{display:none}
-.wsel-group{font-size:11px;color:var(--muted);padding:6px 12px 2px;letter-spacing:1px}
-.wsel-item{padding:5px 12px;font-size:13px;cursor:pointer}
-.wsel-item:hover{background:#1d242c}
-.wsel-item[hidden]{display:none}
+.cd{position:relative;width:100%}
+.cd-btn{width:100%;text-align:left;background:#10151a;color:var(--text);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-size:13px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-btn:hover{border-color:var(--accent-dim)}
+.cd-panel{position:absolute;z-index:30;top:calc(100% + 4px);left:0;right:0;background:#10151a;border:1px solid var(--border2);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.55);max-height:300px;display:flex;flex-direction:column}
+.cd-panel[hidden]{display:none}
+.cd-filter{margin:8px;width:calc(100% - 16px)}
+.cd-list{overflow:auto;padding:0 0 6px}
+.cd-grp[hidden]{display:none}
+.cd-group{font-size:11px;color:var(--muted);padding:6px 12px 2px;letter-spacing:1px}
+.cd-item{padding:5px 12px;font-size:13px;cursor:pointer}
+.cd-item:hover{background:#1d242c}
+.cd-item[hidden]{display:none}
+select.cd-src{display:none !important}
 .item-frame .wsvg{width:94px;height:38px;color:#e6ebf0}
 .item-frame .brand-badge{position:absolute;right:-9px;bottom:-9px;width:40px;height:40px;background:#10151a;border:1px solid var(--border2);border-radius:9px;padding:3px}
 .whead,.ghead{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px}
@@ -318,43 +319,6 @@ function wdisp(w){
   return zh === w.name ? esc(zh) : esc(zh) + ' <span style="color:var(--muted);font-weight:400">' + esc(w.name) + '</span>';
 }
 const WLABELS = ["主武器", "副武器", "手枪"];
-function wselHtml(i, type){
-  const list = weaponListOf(type);
-  const curW = weaponByKey(S.weapons[i]) || list[0];
-  const groups = [["High End", "金装"], ["Named", "具名"], ["Exotic", "奇特"], ["Prototype", "原型"]];
-  const grp = groups.map(([q, label]) => {
-    const ws = list.filter(wq => wq.quality === q);
-    if(!ws.length)return "";
-    return '<div class="wsel-grp"><div class="wsel-group">' + label + '</div>' + ws.map(wq => {
-      const k = weaponKey(wq);
-      const nm = wq.zh && wq.zh !== wq.name ? wq.zh + " " + wq.name : wq.name;
-      return '<div class="wsel-item" role="option" data-wi="' + i + '" data-key="' + esc(k) + '" style="color:' + (QC_COLOR[wq.quality] || "inherit") + '">' + esc(nm) + '</div>';
-    }).join("") + '</div>';
-  }).join("");
-  const curName = curW.zh && curW.zh !== curW.name ? curW.zh + " " + curW.name : (curW.zh || curW.name);
-  return '<div class="wsel" data-wsel="' + i + '">' +
-    '<button type="button" class="wsel-btn" aria-haspopup="listbox"><span style="color:' + (QC_COLOR[curW.quality] || "inherit") + '">' + esc(curName) + '</span></button>' +
-    '<div class="wsel-panel" hidden><input class="wsel-filter" placeholder="搜索武器（中英文均可）…"><div class="wsel-list">' + grp + '</div></div></div>';
-}
-function filterWsel(panel){
-  const q = panel.querySelector(".wsel-filter").value.trim().toLowerCase();
-  panel.querySelectorAll(".wsel-grp").forEach(grp => {
-    let vis = 0;
-    grp.querySelectorAll(".wsel-item").forEach(it => {
-      it.hidden = !!q && !it.textContent.toLowerCase().includes(q);
-      if(!it.hidden)vis++;
-    });
-    grp.hidden = vis === 0;
-  });
-}
-function selectWeapon(i, key){
-  S.weapons[i] = key;
-  const nw = weaponByKey(key);
-  S.wtype = S.wtype || [];
-  if(nw)S.wtype[i] = nw.type;
-  S.wTalent[i] = null; S.wAttr[i] = "Critical Hit Damage";
-  save(); renderAll();
-}
 const QC_COLOR = {"High End":"#d4a940","Named":"#e8edf2","Exotic":"#e0564f","Prototype":"#a06cd5"};
 function renderWeaponCard(i){
   const w = weaponByKey(S.weapons[i]) || D.weapons[0];
@@ -390,7 +354,11 @@ function renderWeaponCard(i){
         <div class="wname"><span style="color:${QC_COLOR[w.quality] || "var(--text)"}">${wdisp(w)}</span> <span style="color:var(--muted);font-weight:400;font-size:11px">${D.typeZh[w.type] || w.type}</span></div>
         ${i === 2 ? "" : '<label class="fl">武器类型</label><select data-w="' + i + '" data-k="wtype">' + weaponTypeOptions(curType) + '</select>'}
         <label class="fl">选择武器</label>
-        ${wselHtml(i, curType)}
+        <select data-w="${i}" data-k="weapon">${weaponListOf(curType).map(wq => {
+          const k = weaponKey(wq);
+          const nm = wq.zh && wq.zh !== wq.name ? wq.zh + " " + wq.name : wq.name;
+          return `<option value="${esc(k)}"${k === S.weapons[i] ? " selected" : ""} style="color:${QC_COLOR[wq.quality] || "inherit"}">${esc(nm)}</option>`;
+        }).join("")}</select>
       </div>
     </div>
     <div class="wstats">
@@ -448,7 +416,8 @@ function itemOpts(slot, sel){
       }else{
         label = it.zh || it.brand;
       }
-      return `<option value="${realIdx}"${realIdx === sel ? " selected" : ""}>${esc(label)}</option>`;
+      const ic = kind === "exotic" ? "#e0564f" : kind === "set" ? "#45a29e" : "#d4a940";
+      return `<option value="${realIdx}"${realIdx === sel ? " selected" : ""} style="color:${ic}">${esc(label)}</option>`;
     }).join("") + "</optgroup>";
   }
   return h;
@@ -694,6 +663,7 @@ function renderAll(){
   $("#gearGrid").innerHTML = SLOTS.map(renderGearCard).join("");
   const R = recalc();
   renderResults(R); renderBrandSummary(R);
+  cdMount(document);
 }
 /* ================= 我的配装收藏 ================= */
 function savedAll(){try{return JSON.parse(localStorage.getItem("d2calc-saved-v1") || "[]");}catch(e){return [];}}
@@ -847,33 +817,88 @@ async function generateBuildImage(){
   }
 }
 
+/* ================= 通用自绘下拉（给所有 select 套皮肤） ================= */
+function cdMount(root){
+  (root || document).querySelectorAll("select").forEach(sel => {
+    if(sel.getAttribute("data-cd") === "1" || sel.classList.contains("cd-src") || !sel.options.length)return;
+    if(sel.closest(".modal"))return;
+    sel.setAttribute("data-cd", "1");
+    sel.classList.add("cd-src");
+    const optColor = o => o.style && o.style.color ? o.style.color : "";
+    const item = o => '<div class="cd-item" data-v="' + esc(o.value) + '" style="color:' + optColor(o) + '">' + esc(o.textContent) + '</div>';
+    let body = "";
+    const ogs = sel.querySelectorAll("optgroup");
+    if(ogs.length){
+      ogs.forEach(og => {
+        body += '<div class="cd-grp"><div class="cd-group">' + esc(og.label || "") + '</div>' +
+          [...og.querySelectorAll("option")].map(item).join("") + '</div>';
+      });
+    }else{
+      body = [...sel.options].map(item).join("");
+    }
+    const cur = sel.options[sel.selectedIndex];
+    const box = document.createElement("div");
+    box.className = "cd";
+    box.innerHTML = '<button type="button" class="cd-btn"><span style="color:' + (cur && cur.style.color || "inherit") + '">' + esc(cur ? cur.textContent : "") + '</span></button>' +
+      '<div class="cd-panel" hidden><input class="cd-filter" placeholder="搜索…"><div class="cd-list">' + body + '</div></div>';
+    sel.before(box);
+    sel.addEventListener("change", () => cdLabel(sel));
+  });
+}
+function cdLabel(sel){
+  const box = sel.previousElementSibling;
+  if(!box || !box.classList.contains("cd"))return;
+  const o = sel.options[sel.selectedIndex];
+  const span = box.querySelector(".cd-btn span");
+  if(o){
+    span.textContent = o.textContent;
+    span.style.color = o.style.color || "inherit";
+  }
+}
+function cdFilter(panel){
+  const q = panel.querySelector(".cd-filter").value.trim().toLowerCase();
+  panel.querySelectorAll(".cd-grp").forEach(grp => {
+    let vis = 0;
+    grp.querySelectorAll(".cd-item").forEach(it => {
+      it.hidden = !!q && !it.textContent.toLowerCase().includes(q);
+      if(!it.hidden)vis++;
+    });
+    grp.hidden = vis === 0;
+  });
+}
+
 function bind(){
   document.body.addEventListener("click", e => {
-    const btn = e.target.closest(".wsel-btn");
+    const btn = e.target.closest(".cd-btn");
     if(btn){
-      const box = btn.closest(".wsel");
-      const panel = box.querySelector(".wsel-panel");
+      const box = btn.closest(".cd");
+      const panel = box.querySelector(".cd-panel");
       const wasOpen = !panel.hidden;
-      document.querySelectorAll(".wsel-panel").forEach(p2 => p2.hidden = true);
+      document.querySelectorAll(".cd-panel").forEach(p2 => p2.hidden = true);
       panel.hidden = wasOpen;
       if(!panel.hidden){
-        const f = panel.querySelector(".wsel-filter");
-        f.value = ""; filterWsel(panel); f.focus();
+        const f = panel.querySelector(".cd-filter");
+        f.value = ""; cdFilter(panel); f.focus();
       }
       return;
     }
-    const item = e.target.closest(".wsel-item");
+    const item = e.target.closest(".cd-item");
     if(item){
-      item.closest(".wsel").querySelector(".wsel-panel").hidden = true;
-      selectWeapon(+item.getAttribute("data-wi"), item.getAttribute("data-key"));
+      const box = item.closest(".cd");
+      const sel = box.parentElement.querySelector("select.cd-src");
+      box.querySelector(".cd-panel").hidden = true;
+      if(sel && sel.value !== item.getAttribute("data-v")){
+        sel.value = item.getAttribute("data-v");
+        sel.dispatchEvent(new Event("change", {bubbles: true}));
+      }
       return;
     }
-    if(!e.target.closest(".wsel-panel")){
-      document.querySelectorAll(".wsel-panel").forEach(p2 => p2.hidden = true);
+    if(!e.target.closest(".cd-panel")){
+      document.querySelectorAll(".cd-panel").forEach(p2 => p2.hidden = true);
     }
   });
   document.body.addEventListener("input", e => {
-    if(e.target.classList.contains("wsel-filter"))filterWsel(e.target.closest(".wsel-panel"));
+    if(e.target.classList.contains("cd-filter"))cdFilter(e.target.closest(".cd-panel"));
   });
   document.body.addEventListener("change", e => {
     const el = e.target;
@@ -976,6 +1001,7 @@ function bind(){
   $("#btnReset").addEventListener("click", () => {
     S = defaultState(); save(); location.hash = ""; renderAll(); syncInputs(); toast("已重置为示例配装");
   });
+  cdMount(document);
 }
 function renderGearPills(slot){
   const g = S.gear[slot];
