@@ -259,7 +259,7 @@ S.wtype = (S.wtype && S.wtype.length === 2) ? S.wtype : [
 /* ================= 渲染：武器卡 ================= */
 function qualityTag(q){
   const z = D.qualityZh[q] || q;
-  const cls = q === "Exotic" ? "q-exotic" : "q-high";
+  const cls = (q === "Exotic" || q === "Prototype") ? "q-exotic" : "q-high";
   return `<span class="qtag ${cls}">${z}</span>`;
 }
 /* 7 类武器剪影（白色剪影，风格与装备槽图标一致） */
@@ -279,7 +279,7 @@ function typeSvg(type, w){
 }
 function frameCls(kind){
   const k = (kind || "").toLowerCase();
-  return k === "exotic" ? " exotic" : (k === "set" || k === "gearset" ? " set" : "");
+  return (k === "exotic" || k === "prototype") ? " exotic" : (k === "set" || k === "gearset" ? " set" : "");
 }
 /* 天赋中文名 / 中文描述 / 图标（来自 td2-optimizer 官方天赋表） */
 function tz(n){return (D.talentZh && D.talentZh[String(n).toLowerCase()]) || null;}

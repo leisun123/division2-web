@@ -76,7 +76,7 @@ SPEC_ZH = {
     "Technician - Heals": "技师（治疗）", "Technician - Damage": "技师（输出）",
     "Firewall": "烈焰之墙",
 }
-QUALITY_ZH = {"High End": "金装", "Named": "具名", "Exotic": "奇特", "Gearset": "套装"}
+QUALITY_ZH = {"High End": "金装", "Named": "具名", "Exotic": "奇特", "Gearset": "套装", "Prototype": "原型"}
 
 def zh(stat):
     return ZH.get(stat, stat)
@@ -381,6 +381,95 @@ if tdb:
             tl = hit.get("talent") if hit and isinstance(hit.get("talent"), dict) else None
             if tl and tl.get("en") and it.get("talent"):
                 it["talent"] = tl["en"]
+    # ---------- 补全：geardb 独有的奇特/原型/具名（武器与装备） ----------
+    # 数值校准：按武器类型取 Mx基础伤害 / geardb面板伤害 的中位比值
+    import statistics
+    mx_base = {}
+    for r in csv.DictReader(open(os.path.join(RAW, "Weapons.csv"))):
+        try:
+            mx_base[(canon(r["Name"]), r["Weapon Type"])] = float(r["Base Damage"])
+        except Exception:
+            pass
+    ratios_by_type = {}
+    for x in tdb["weapons"]:
+        key = (canon(x.get("en") or ""), x.get("type_en"))
+        if key in mx_base and x.get("dmg"):
+            ratios_by_type.setdefault(x.get("type_en"), []).append(mx_base[key] / x["dmg"])
+    type_ratio = {t: statistics.median(rs) for t, rs in ratios_by_type.items()}
+    all_rs = sorted(v for rs in ratios_by_type.values() for v in rs)
+    global_ratio = all_rs[len(all_rs) // 2] if all_rs else 0.84
+
+    TYPE_FROM_GEARD = {"Assault Rifle": "Assault Rifle", "Submachine Gun": "SMG",
+                       "Light Machine Gun": "LMG", "Rifle": "Rifle", "Shotgun": "Shotgun",
+                       "Marksman Rifle": "Marksman Rifle", "Pistol": "Pistol"}
+    existing_w = {(canon(w["name"]), w["type"]) for w in weapons}
+    added_w = []
+    for x in tdb["weapons"]:
+        t_en = x.get("type_en")
+        if t_en not in TYPE_FROM_GEARD:
+            continue  # 跳过专精武器
+        q = x.get("quality")
+        if not (q in ("Exotic", "Prototype") or (q == "Orange" and x.get("named"))):
+            continue  # 只补奇特/原型/具名，灰色基础型号不收
+        en = (x.get("en") or x.get("name") or "").strip()
+        our_type = TYPE_FROM_GEARD[t_en]
+        ck = (canon(en), our_type)
+        if not en or ck in existing_w:
+            continue
+        existing_w.add(ck)
+        if not x.get("dmg") or not x.get("rpm") or not x.get("mag"):
+            continue
+        k = type_ratio.get(t_en) or global_ratio
+        tl = x.get("talent") if isinstance(x.get("talent"), dict) else None
+        quality = {"Exotic": "Exotic", "Prototype": "Prototype"}.get(q, "Named")
+        w = {
+            "name": en, "variant": en, "type": our_type, "quality": quality,
+            "zh": x.get("zh") or en,
+            "dmg": round(x["dmg"] * k), "mag": int(x["mag"]), "rpm": int(x["rpm"]),
+            "reload": int(x.get("reload_ms") or 2000), "hsd": round((x.get("head_mult") or 1.5) * 100 - 100),
+            "core1": {"stat": {"Assault Rifle": "Assault Rifle Damage", "SMG": "SMG Damage", "LMG": "LMG Damage",
+                               "Rifle": "Rifle Damage", "Shotgun": "Shotgun Damage",
+                               "Marksman Rifle": "Marksman Rifle Damage", "Pistol": "Pistol Damage"}[our_type], "max": 15},
+            "core2": None, "attr1": None,
+            "talent": (tl.get("en") if tl and tl.get("en") else None),
+            "img": _iconfile(x.get("icon")),
+        }
+        weapons.append(w)
+        added_w.append(en)
+        if tl and tl.get("en") and not any(t2["name"] == tl["en"] for t2 in weapon_talents):
+            weapon_talents.append({"name": tl["en"], "desc": tl.get("desc_en") or "", "types": [our_type],
+                                   "q": "N", "fx": WFX.get(tl["en"])})
+
+    # 装备：补 geardb 独有的具名/奇特件
+    added_g = []
+    for slot in slots:
+        have = {(canon(it.get("name") or ""), it["kind"]) for it in slots[slot]}
+        for x in tdb["gear"]:
+            if x.get("slot") != slot.lower() or x.get("kind") not in ("named", "exotic"):
+                continue
+            en = (x.get("en") or "").strip()
+            k2 = x.get("kind")
+            if not en or (canon(en), k2) in have:
+                continue
+            have.add((canon(en), k2))
+            tl = x.get("talent") if isinstance(x.get("talent"), dict) else None
+            brand_en = x.get("brand_en")
+            it = {
+                "name": en,
+                "zh": x.get("zh") or en,
+                "kind": k2,
+                "brand": brand_en if (k2 == "named" and brand_en and brand_en != "-") else None,
+                "icon": icon_for(x.get("brand_en"), k2),
+                "talent": (tl.get("en") if tl and tl.get("en") else None),
+                "fixedTalent": True,
+                "img": _iconfile(x.get("gear_icon")),
+            }
+            slots[slot].append(it)
+            added_g.append(en)
+            if tl and tl.get("en") and tl not in (None,):
+                pass
+    # geardb 装备天赋也补进 zh 映射源（talent dict 自带 zh/icon 的场景）
+
     # 天赋中文名/中文描述/图标（按英文名匹配）
     talent_zh = {}
     for x in tdb["talents_official"]:
@@ -463,3 +552,4 @@ if tdb:
     if unmatched_g:
         print("未匹配装备:", unmatched_g[:20])
     print("天赋中文映射:", len(talent_zh_out))
+    print("geardb 补全: 武器 +%d (%s...) | 装备 +%d" % (len(added_w), ",".join(added_w[:5]), len(added_g)))
