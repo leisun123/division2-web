@@ -157,6 +157,12 @@ ICON = {
     "Ongoing Directive": "ongoing", "Striker's Battlegear": "strikers",
     "System Corruption": "system", "Tip of the Spear": "hunters",
     "True Patriot": "true",
+    # geardb 补全的新品牌 / 新套装 logo（本地 icons/brands/ 已有的）
+    "Lengmo": "lengmo", "Palisade Steelworks": "", "Zwiadowka Sp. z o.o.": "zwiadowka",
+    "Legatus S.p.A.": "legatus", "Shiny Monkey Gear": "", "Imminence Armaments": "",
+    "Urban Lookout": "", "Unit Alloys": "", "Royal Works": "", "Edelweiss GPz": "",
+    "Précision Défense": "", "Walker, Harris & Co.": "walker",
+    "Electrique": "", "Habsburg Guard": "",
 }
 def icon_for(brand, kind):
     if kind == "exotic":
@@ -555,6 +561,41 @@ if tdb:
             })
         added_sets.append(en)
 
+    # ---------- 补全：geardb 官方金装品牌（Mx CSV 缺的新品牌：电力/冷漠/军团特攻等） ----------
+    brand_piece_by_key = {}
+    for gp in tdb["gear"]:
+        if gp.get("kind") == "brand" and gp.get("brand_en"):
+            brand_piece_by_key.setdefault((canon(gp["brand_en"]), gp.get("slot")), gp)
+    added_brands = []
+    for b in tdb.get("brands", []):
+        en = (b.get("en") or "").strip()
+        zh_name = b.get("zh") or en
+        if not en or b.get("kind") != "金装":
+            continue  # 跳过套装与「装备/破旧装备」占位
+        if any(set_canon(en) == set_canon(x) for x in brand_names):
+            continue  # Mx 已有（含 Alps Summit Armament/Česká Výroba 拼写差异）
+        # 1/2/3 件套官方加成 → bonuses idx 0/1/2
+        for t in (b.get("tiers_official") or b.get("bonus") or []):
+            p = t.get("pieces")
+            if p not in (1, 2, 3):
+                continue
+            es = []
+            for e in (t.get("effects") or []):
+                stat = GEAR_SET_STAT.get(e.get("attr_en") or e.get("code"), e.get("attr_en") or e.get("code"))
+                es.append({"stat": stat, "val": float(e.get("value") or 0)})
+            if es:
+                bonuses.setdefault(en, {})[p - 1] = es if len(es) > 1 else es[0]
+        brand_names.add(en)
+        brandZh[en] = {"z": zh_name, "a": b.get("abbr_zh") or zh_name}
+        for slot in slots:
+            piece = brand_piece_by_key.get((set_canon(en), slot.lower()))
+            img = _iconfile(piece.get("gear_icon")) if piece and piece.get("gear_icon") else None
+            slots[slot].append({
+                "name": en, "zh": en, "kind": "brand", "brand": en,
+                "icon": icon_for(en, "brand"), "img": img,
+            })
+        added_brands.append(en)
+
     # 天赋中文名/中文描述/图标（按英文名匹配）
     talent_zh = {}
     for x in tdb["talents_official"]:
@@ -667,4 +708,4 @@ if tdb:
     if unmatched_g:
         print("未匹配装备:", unmatched_g[:20])
     print("天赋中文映射:", len(talent_zh_out))
-    print("geardb 补全: 武器 +%d (%s...) | 装备 +%d | 套装 +%d (%s)" % (len(added_w), ",".join(added_w[:5]), len(added_g), len(added_sets), ",".join(added_sets[:6])))
+    print("geardb 补全: 武器 +%d (%s...) | 装备 +%d | 套装 +%d (%s...) | 品牌 +%d (%s...)" % (len(added_w), ",".join(added_w[:5]), len(added_g), len(added_sets), ",".join(added_sets[:4]), len(added_brands), ",".join(added_brands[:4])))
