@@ -314,7 +314,11 @@ CANON_ALIAS = {
     "aceseights": "acesandeights",
     "alpssummitarmament": "alpssummitarmaments",
     "foundrybullwark": "foundrybulwark",
+    "btsugloves": "btsudatagloves",  # Mx「BTSU Gloves」= geardb「BTSU Datagloves」
 }
+def acanon(s):
+    c = canon(s)
+    return CANON_ALIAS.get(c, c)
 GEAR_TYPE_MAP = {
     "Assault Rifle": "Assault Rifle", "SMG": "Submachine Gun", "LMG": "Light Machine Gun",
     "Rifle": "Rifle", "Shotgun": "Shotgun", "Marksman Rifle": "Marksman Rifle", "Pistol": "Pistol",
@@ -458,15 +462,15 @@ if tdb:
     # 装备：补 geardb 独有的具名/奇特件
     added_g = []
     for slot in slots:
-        have = {(canon(it.get("name") or ""), it["kind"]) for it in slots[slot]}
+        have = {(acanon(it.get("name") or ""), it["kind"]) for it in slots[slot]}
         for x in tdb["gear"]:
             if x.get("slot") != slot.lower() or x.get("kind") not in ("named", "exotic"):
                 continue
             en = (x.get("en") or "").strip()
             k2 = x.get("kind")
-            if not en or (canon(en), k2) in have:
+            if not en or (acanon(en), k2) in have:
                 continue
-            have.add((canon(en), k2))
+            have.add((acanon(en), k2))
             tl = x.get("talent") if isinstance(x.get("talent"), dict) else None
             brand_en = x.get("brand_en")
             it = {
@@ -646,6 +650,35 @@ if tdb:
             apply_tiers(tgt, tiers)
             bonus_fixed.append(tgt)
 
+    # ---------- 奇特装备官方固定词条（天赋与词条槽全固定，不可重校准；值=官方模板） ----------
+    ex_gear = {}
+    for g0 in tdb["gear"]:
+        if g0.get("kind") == "exotic" and g0.get("en"):
+            ex_gear.setdefault(acanon(g0["en"]), g0)
+
+    def ext_stat(s0):
+        raw = (s0.get("name_en") or "").rstrip("!")
+        return GEAR_SET_STAT.get(raw, raw)
+
+    def ext_val(s0):
+        v = s0.get("val") or 0
+        return round(v, 1) if s0.get("unit") == "%" else int(round(v))
+
+    n_fixgear = 0
+    for slot in slots:
+        for it in slots[slot]:
+            if it.get("kind") != "exotic":
+                continue
+            g0 = ex_gear.get(acanon(it["name"]))
+            sl0 = ((g0 or {}).get("attrs_max") or {}).get("slots") or []
+            core = next((s0 for s0 in sl0 if s0.get("kind") == "core"), None)
+            fixed_slots = [s0 for s0 in sl0 if s0.get("kind") != "core" and s0.get("val") is not None]
+            if not core or not fixed_slots:
+                continue
+            it["fixedCore"] = {"stat": ext_stat(core), "val": ext_val(core), "pct": core.get("unit") == "%"}
+            it["fixedAttrs"] = [{"stat": ext_stat(a), "val": ext_val(a), "pct": a.get("unit") == "%"} for a in fixed_slots]
+            n_fixgear += 1
+
     # 天赋中文名/中文描述/图标（按英文名匹配）
     talent_zh = {}
     for x in tdb["talents_official"]:
@@ -758,4 +791,4 @@ if tdb:
     if unmatched_g:
         print("未匹配装备:", unmatched_g[:20])
     print("天赋中文映射:", len(talent_zh_out))
-    print("geardb 补全: 武器 +%d (%s...) | 装备 +%d | 套装 +%d (%s...) | 品牌 +%d (%s...) | 加成校准 %d 条" % (len(added_w), ",".join(added_w[:5]), len(added_g), len(added_sets), ",".join(added_sets[:4]), len(added_brands), ",".join(added_brands[:4]), len(bonus_fixed)))
+    print("geardb 补全: 武器 +%d (%s...) | 装备 +%d | 套装 +%d (%s...) | 品牌 +%d (%s...) | 加成校准 %d 条 | 奇特固定词条 %d 件" % (len(added_w), ",".join(added_w[:5]), len(added_g), len(added_sets), ",".join(added_sets[:4]), len(added_brands), ",".join(added_brands[:4]), len(bonus_fixed), n_fixgear))

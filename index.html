@@ -205,6 +205,7 @@ footer{padding:14px 20px 30px;color:var(--muted);font-size:11px;line-height:1.8;
       · 公式：期望伤害 = 基础伤害 × (1 + 全武器伤 + 武器类型伤 + 专精/手表/专精度) × (1 + 暴率×暴伤 + 爆头率×爆头伤) × 独立增伤，对装甲再乘 (1 + 对装甲伤)。<br>
       · 满级 40 满值：红核 = 武器伤害 +15%，蓝核 = 装甲 +170,000，黄核 = 技能分阶 +1；暴击率上限 60%，每把枪自带 25% 暴伤与面板爆头伤。<br>
       · 具名 / 奇特 / 套装 4 件套天赋为固定天赋，品牌件可在下拉中选择通用天赋。<br>
+      · 奇特装备的天赋与词条均为官方固定值（不可重校准，全服同 roll），网站按解包数据锁定显示；具名装备天赋固定、词条随机（可自行选择模拟你手上的 roll）。<br>
       · 奇特限制（同游戏规则）：奇特武器 3 个武器位合计只能带 1 把、奇特装备 6 个部位合计只能穿 1 件，超出时自动把先前的奇特换下。<br>
       · 原型（TU26）：金装/具名/套装/非奇特武器可在改造台升为原型——词条上限 ×1.5（红核 +22.5%、蓝核 255,000、黄核 = 技能分阶 +1.5）并获得 1 个插件槽（9 选 1，等级随专精 0-10）。回声插件按触发几率的期望增伤计入，其余插件仅展示。<br>
       · 换弹、弹匣容量参与循环 DPS 与弹匣伤害；射速加成暂未计入。<br>
@@ -512,6 +513,25 @@ function renderGearCard(slot){
   const protoRow = item.kind === "exotic" ? "" :
     `<div class="proto-row"><label class="ptoggle"><input type="checkbox" data-slot="${slot}" data-k="proto"${g.proto ? " checked" : ""}>原型（词条 ×1.5 + 插件槽）</label></div>` +
     (proto ? `<label class="fl">原型插件</label><select data-slot="${slot}" data-k="aug">${augOptions(g.aug)}</select>${augInfoHtml(g.aug)}` : "");
+  // 奇特装备：天赋与词条均为官方固定值（不可重校准），锁定显示
+  const fixedGear = item.kind === "exotic" && item.fixedCore && item.fixedAttrs;
+  let fixedHtml = "";
+  if(fixedGear){
+    const fc = item.fixedCore;
+    const cls = fc.stat === "Weapon Damage" ? "red" : fc.stat === "Armor" ? "blue" : "yellow";
+    const coreLabel = cls === "red" ? "武器伤害 +" + fc.val + "%" : cls === "blue" ? "装甲 +" + fmt(fc.val) : "技能分阶 +" + fc.val;
+    fixedHtml = `<div class="core-pills"><div class="cpill ${cls} on"><img src="icons/core-${cls}.png" alt="">${coreLabel}</div></div>
+      ${item.fixedAttrs.map(a => `<div class="detail" style="margin:3px 0">固定词条：<b>${esc(zh(a.stat))}</b> +${a.pct ? a.val + "%" : fmt(a.val)}</div>`).join("")}`;
+  }
+  const coreHtml = fixedGear ? fixedHtml :
+    `<div class="core-pills">
+      <div class="cpill red${g.core === "red" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="red"><img src="icons/core-red.png" alt="">武器伤害 +${Math.round(15 * pm * 10) / 10}%</div>
+      <div class="cpill blue${g.core === "blue" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="blue"><img src="icons/core-blue.png" alt="">装甲 +${proto ? "255,000" : "170,000"}</div>
+      <div class="cpill yellow${g.core === "yellow" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="yellow"><img src="icons/core-yellow.png" alt="">技能分阶 +${proto ? PROTO.yellowCore : 1}</div>
+    </div>`;
+  const attrHtml = fixedGear ? "" :
+    `<label class="fl">副词条 1</label><select data-slot="${slot}" data-k="a1">${attrOpts(tier, g.a1, pm)}</select>
+    <label class="fl">副词条 2</label><select data-slot="${slot}" data-k="a2">${attrOpts(tier, g.a2, pm)}</select>`;
   const badge = item.icon ? `<img class="brand-badge" src="icons/brands/${item.icon}.png" alt="" onerror="this.remove()">` : "";
   const mainImg = `<img class="item-ic" src="${item.img || "icons/slots/" + slot.toLowerCase() + ".png"}" alt="${SLOT_ZH[slot]}" onerror="this.onerror=null;this.src='icons/slots/${slot.toLowerCase()}.png'">`;
   return `<div class="gcard">
@@ -522,14 +542,9 @@ function renderGearCard(slot){
         <select data-slot="${slot}" data-k="item">${itemOpts(slot, g.i)}</select>
       </div>
     </div>
-    <div class="core-pills">
-      <div class="cpill red${g.core === "red" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="red"><img src="icons/core-red.png" alt="">武器伤害 +${Math.round(15 * pm * 10) / 10}%</div>
-      <div class="cpill blue${g.core === "blue" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="blue"><img src="icons/core-blue.png" alt="">装甲 +${proto ? "255,000" : "170,000"}</div>
-      <div class="cpill yellow${g.core === "yellow" ? " on" : ""}" data-slot="${slot}" data-k="core" data-v="yellow"><img src="icons/core-yellow.png" alt="">技能分阶 +${proto ? PROTO.yellowCore : 1}</div>
-    </div>
+    ${coreHtml}
     ${protoRow}
-    <label class="fl">副词条 1</label><select data-slot="${slot}" data-k="a1">${attrOpts(tier, g.a1, pm)}</select>
-    <label class="fl">副词条 2</label><select data-slot="${slot}" data-k="a2">${attrOpts(tier, g.a2, pm)}</select>
+    ${attrHtml}
     ${modHtml}${talentHtml}
   </div>`;
 }
@@ -588,9 +603,15 @@ function recalc(){
     const gs = S.gear[slot];
     const item = D.slots[slot][gs.i];
     const gproto = !!gs.proto && item.kind !== "exotic";
-    if(gs.core === "red") awd += gproto ? 15 * PROTO.mult : 15;
+    if(item.kind === "exotic" && item.fixedCore){
+      // 奇特装备词条全固定（官方模板值，不可重校准）
+      if(item.fixedCore.stat === "Weapon Damage") awd += item.fixedCore.val || 15;
+      for(const fa of (item.fixedAttrs || [])) routeStat(fa.stat, fa.val);
+    }else{
+      if(gs.core === "red") awd += gproto ? 15 * PROTO.mult : 15;
+      for(const k of ["a1", "a2"]) if(gs[k]) routeStat(gs[k], attrMaxFor(item, gs[k]) * (gproto ? PROTO.mult : 1));
+    }
     if(gs.mod){const m = D.mods.find(x => x.stat === gs.mod); if(m) routeStat(m.stat, m.max);}
-    for(const k of ["a1", "a2"]) if(gs[k]) routeStat(gs[k], attrMaxFor(item, gs[k]) * (gproto ? PROTO.mult : 1));
     if(slot === "Chest" || slot === "Backpack"){
       let tName = null, fx = null;
       if(item && item.fixedTalent && item.talent){
@@ -875,11 +896,23 @@ async function generateBuildImage(){
       const tier = it.kind === "named" ? "N" : "A";
       const amax = st => {if(!st)return null; const h = (D.attrs[tier] || []).find(a => a.stat === st) || D.attrs.A.find(a => a.stat === st); return h ? h.max : 0;};
       const attrStr = st => {const m = st ? Math.round(amax(st) * pm * 10) / 10 : 0; return st ? zh(st) + " +" + (PCT_ABS.has(st) ? m : m + "%") : "—";};
-      const coreTxt = gs.core === "red" ? "武器伤害 +" + Math.round(15 * pm * 10) / 10 + "%" : gs.core === "blue" ? "装甲 +" + (gproto ? "255,000" : "170,000") : "技能分阶 +" + (gproto ? PROTO.yellowCore : 1);
-      const coreCol = gs.core === "red" ? "#e0564f" : gs.core === "blue" ? "#4f8fca" : "#d9b13b";
+      const gfix = it.kind === "exotic" && it.fixedCore;
+      let coreTxt, coreCol, line1, line2;
+      if(gfix){
+        const fc = it.fixedCore;
+        coreTxt = fc.stat === "Weapon Damage" ? "武器伤害 +" + fc.val + "%" : fc.stat === "Armor" ? "装甲 +" + fmt(fc.val) : "技能分阶 +" + fc.val;
+        coreCol = fc.stat === "Weapon Damage" ? "#e0564f" : fc.stat === "Armor" ? "#4f8fca" : "#d9b13b";
+        line1 = it.fixedAttrs[0] ? zh(it.fixedAttrs[0].stat) + " +" + (it.fixedAttrs[0].pct ? it.fixedAttrs[0].val + "%" : fmt(it.fixedAttrs[0].val)) : "—";
+        line2 = it.fixedAttrs[1] ? zh(it.fixedAttrs[1].stat) + " +" + (it.fixedAttrs[1].pct ? it.fixedAttrs[1].val + "%" : fmt(it.fixedAttrs[1].val)) : "—";
+      }else{
+        coreTxt = gs.core === "red" ? "武器伤害 +" + Math.round(15 * pm * 10) / 10 + "%" : gs.core === "blue" ? "装甲 +" + (gproto ? "255,000" : "170,000") : "技能分阶 +" + (gproto ? PROTO.yellowCore : 1);
+        coreCol = gs.core === "red" ? "#e0564f" : gs.core === "blue" ? "#4f8fca" : "#d9b13b";
+        line1 = attrStr(gs.a1);
+        line2 = attrStr(gs.a2);
+      }
       t(g, "● " + coreTxt, x+16, y+170, {size: 14, bold: true, color: coreCol});
-      t(g, attrStr(gs.a1), x+16, y+198, {size: 14});
-      t(g, attrStr(gs.a2), x+16, y+222, {size: 14});
+      t(g, line1, x+16, y+198, {size: 14});
+      t(g, line2, x+16, y+222, {size: 14});
       if(gs.mod){const m = D.mods.find(mm => mm.stat === gs.mod); if(m)t(g, "插件：" + zh(m.stat) + " +" + m.max + "%", x+16, y+246, {size: 13, color: "#8b949d"});}
       let tn = null;
       if(slot === "Chest" || slot === "Backpack"){
