@@ -503,11 +503,16 @@ if tdb:
         "Assault Rifle Damage": "Assault Rifle Damage", "LMG Damage": "LMG Damage",
         "Marksman Rifle Damage": "Marksman Rifle Damage", "Rifle Damage": "Rifle Damage",
         "SMG Damage": "SMG Damage", "Shotgun Damage": "Shotgun Damage",
+        "Damage To Health": "Damage to Health", "Rate of Fire": "Rate of Fire",
+        "Optimal Range": "Optimal Range", "Increased Threat": "Increased Threat",
+        "Explosives Damage": "Explosives Damage",
     }
     zh_map.update({
         "Burn Damage": "燃烧伤害", "Total Armor %": "总装甲值", "Health on Kill": "击杀回血",
         "Skill Efficiency": "技能效率", "Shield Health": "护盾生命值",
         "Increased Burn Duration": "燃烧持续时间提升",
+        "Rate of Fire": "射速", "Optimal Range": "最佳射程", "Increased Threat": "威胁值提升",
+        "Explosives Damage": "爆炸伤害",
     })
     set_piece_by_key = {}
     for gp in tdb["gear"]:
@@ -536,7 +541,8 @@ if tdb:
             elif p in (2, 3):
                 es = []
                 for e in (t.get("effects") or []):
-                    stat = GEAR_SET_STAT.get(e.get("attr_en") or e.get("code"), e.get("attr_en") or e.get("code"))
+                    raw_stat = (e.get("attr_en") or e.get("code") or "").rstrip("!")
+                    stat = GEAR_SET_STAT.get(raw_stat, raw_stat)
                     es.append({"stat": stat, "val": float(e.get("value") or 0)})
                 if es:
                     bonuses.setdefault(en, {})[p - 1] = es if len(es) > 1 else es[0]
@@ -581,8 +587,9 @@ if tdb:
                 continue
             es = []
             for e in (t.get("effects") or []):
-                stat = GEAR_SET_STAT.get(e.get("attr_en") or e.get("code"), e.get("attr_en") or e.get("code"))
-                es.append({"stat": stat, "val": float(e.get("value") or 0)})
+                raw_stat = (e.get("attr_en") or e.get("code") or "").rstrip("!")
+                stat = GEAR_SET_STAT.get(raw_stat, raw_stat)
+                es.append({"stat": stat, "val": float(e.get("value") or 0), "pct": e.get("unit") == "%"})
             if es:
                 bonuses.setdefault(en, {})[p - 1] = es if len(es) > 1 else es[0]
         brand_names.add(en)
@@ -595,6 +602,49 @@ if tdb:
                 "icon": icon_for(en, "brand"), "img": img,
             })
         added_brands.append(en)
+
+    # ---------- 加成校准：geardb 官方 tiers 覆盖 Mx 旧值（戈兰/电力等品牌加成游戏内已改动） ----------
+    def apply_tiers(target_name, tiers):
+        for t in tiers:
+            p = t.get("pieces")
+            if p not in (1, 2, 3):
+                continue  # 套装 4 件套=天赋占位，保持 Mx 原样
+            es = []
+            for e in (t.get("effects") or []):
+                raw_stat = (e.get("attr_en") or e.get("code") or "").rstrip("!")
+                stat = GEAR_SET_STAT.get(raw_stat, raw_stat)
+                es.append({"stat": stat, "val": float(e.get("value") or 0), "pct": e.get("unit") == "%"})
+            if es:
+                bonuses.setdefault(target_name, {})[p - 1] = es if len(es) > 1 else es[0]
+
+    def our_name(en, pool):
+        if en in pool:
+            return en
+        for x in pool:
+            if set_canon(en) == set_canon(x):
+                return x
+        return None
+
+    bonus_fixed = []
+    for b in tdb.get("brands", []):
+        en = (b.get("en") or "").strip()
+        tiers = b.get("tiers_official") or b.get("bonus") or []
+        if not en or b.get("kind") != "金装" or not tiers:
+            continue
+        tgt = our_name(en, brand_names)
+        if tgt:
+            apply_tiers(tgt, tiers)
+            if tgt != en:
+                bonus_fixed.append(tgt + "(=" + en + ")")
+    for gs in tdb.get("gearsets_official", []):
+        en = (gs.get("en") or "").strip()
+        tiers = [t for t in gs.get("tiers", []) if isinstance(t, dict) and t.get("pieces") in (2, 3)]
+        if not en or en == "-" or gs.get("is_brand") or not tiers:
+            continue
+        tgt = our_name(en, set_names)
+        if tgt:
+            apply_tiers(tgt, tiers)
+            bonus_fixed.append(tgt)
 
     # 天赋中文名/中文描述/图标（按英文名匹配）
     talent_zh = {}
@@ -708,4 +758,4 @@ if tdb:
     if unmatched_g:
         print("未匹配装备:", unmatched_g[:20])
     print("天赋中文映射:", len(talent_zh_out))
-    print("geardb 补全: 武器 +%d (%s...) | 装备 +%d | 套装 +%d (%s...) | 品牌 +%d (%s...)" % (len(added_w), ",".join(added_w[:5]), len(added_g), len(added_sets), ",".join(added_sets[:4]), len(added_brands), ",".join(added_brands[:4])))
+    print("geardb 补全: 武器 +%d (%s...) | 装备 +%d | 套装 +%d (%s...) | 品牌 +%d (%s...) | 加成校准 %d 条" % (len(added_w), ",".join(added_w[:5]), len(added_g), len(added_sets), ",".join(added_sets[:4]), len(added_brands), ",".join(added_brands[:4]), len(bonus_fixed)))

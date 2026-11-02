@@ -555,7 +555,8 @@ function aggregate(){
       for(const e of (Array.isArray(e0) ? e0 : [e0])){
         if(e.stat === "Talent") continue;
         add[e.stat] = (add[e.stat] || 0) + e.val;
-        achieved[name].eff.push(zh(e.stat) + " +" + (PCT_ABS.has(e.stat) ? e.val : e.val + "%"));
+        const isPct = e.pct !== undefined ? e.pct : !PCT_ABS.has(e.stat);
+        achieved[name].eff.push(zh(e.stat) + " +" + (isPct ? e.val + "%" : e.val));
       }
     }
   }
